@@ -10,4 +10,4 @@ install:
   - pip install -r requirements.txt
 script:
   - fbs freeze
-  - fbs installer
+#  - fbs installer # FPM is misbehaving on travis-ci
