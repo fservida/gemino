@@ -50,6 +50,16 @@ Just download the binaries for your system
 - from github's [release page](https://github.com/fservida/gemino/releases).
 - from fbs release system
   - macOS: [https://fbs.sh/fservida/gemino/gemino.dmg](https://fbs.sh/fservida/gemino/gemino.dmg)
+  - windows: [https://fbs.sh/fservida/gemino/geminoSetup.exe](https://fbs.sh/fservida/gemino/geminoSetup.exe)
+  - ubuntu: [https://fbs.sh/fservida/gemino/gemino.deb](https://fbs.sh/fservida/gemino/gemino.deb)
+    - via apt with auto-updates:
+    - ```
+      sudo apt-get install apt-transport-https
+      wget -qO - https://fbs.sh/fservida/gemino/public-key.gpg | sudo apt-key add -
+      echo 'deb [arch=amd64] https://fbs.sh/fservida/gemino/deb stable main' | sudo tee /etc/apt/sources.list.d/gemino.list
+      sudo apt-get update
+      sudo apt-get install gemino
+      ```
 
 #### From source
 **Python 3.5/3.6 Required** 
