@@ -166,7 +166,7 @@ fabric.properties
 ########## FBS
 target
 src/build/settings/secret.json
-
+src/sign/linux/private-key.gpg
 
 ########## Other
 test_copy.py

@@ -711,12 +711,12 @@ class MainWidget(QtWidgets.QWidget):
 
 
 class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self):
+    def __init__(self, version):
         super().__init__()
 
         self.setCentralWidget(MainWidget())
-
         self.initMenu()
+        self.version = version
 
     def initMenu(self):
         bar = self.menuBar()
@@ -730,7 +730,8 @@ class MainWindow(QtWidgets.QMainWindow):
         message.setIcon(QtWidgets.QMessageBox.Information)
         message.setText("gemino")
         message.setInformativeText(
-            "gemino file duplicator\n\nv1.0.0 - January 2019\n\nDeveloped with ❤️ by Francesco Servida\nUniversity of Lausanne\n\nLicensed under GPLv3\nhttps://opensource.org/licenses/GPL-3.0")
+            "gemino file duplicator\n\nv{} - January 2019\n\nDeveloped with ❤️ by Francesco Servida\nUniversity of Lausanne\n\nLicensed under GPLv3\nhttps://opensource.org/licenses/GPL-3.0".format(
+                self.version))
         message.setWindowTitle("About")
         message.setStandardButtons(QtWidgets.QMessageBox.Ok)
         message.exec_()
@@ -742,8 +743,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
 class AppContext(ApplicationContext):  # 1. Subclass ApplicationContext
     def run(self):  # 2. Implement run()
-        window = MainWindow()
         version = self.build_settings['version']
+        window = MainWindow(version)
         window.setWindowTitle("gemino v" + version)
         window.resize(650, 600)
         window.show()
