@@ -110,7 +110,8 @@ class CopyThread(QThread):
                 filecount += 1
 
                 self.copy_progress.emit(
-                    (0, {dst: {'status': 'copy', 'processed_bytes': copied_size, 'processed_files': filecount, 'current_file': filename}
+                    (0, {dst: {'status': 'copy', 'processed_bytes': copied_size, 'processed_files': filecount,
+                               'current_file': filename}
                          for dst in
                          self.destinations}))
 
@@ -186,7 +187,7 @@ class CopyThread(QThread):
                     raise IOError("It seems like we lost access to the source... Bob is sad :-(")
                 files_hashes[path.normpath(path.join(rel_path, filename))] = file_hashes
 
-        #print("Total Copied Bytes: %s" % copied_size)
+        # print("Total Copied Bytes: %s" % copied_size)
 
         # Write Hash Files
         end_date = datetime.now().isoformat()
@@ -291,6 +292,7 @@ class CopyThread(QThread):
 
 
 from PySide2 import QtWidgets, QtCore, QtGui
+
 
 # from .threads import SizeCalcThread, CopyThread
 
@@ -657,8 +659,8 @@ class MainWidget(QtWidgets.QWidget):
             'sha256': None,
         }
         for hash_algo in hash_algos:
-            hash_algos[hash_algo] = self.settings.value(hash_algo) if self.settings.value(
-                hash_algo) is not None else True
+            stored_setting = self.settings.value(hash_algo)
+            hash_algos[hash_algo] = bool(stored_setting) if stored_setting is not None else True
         self.hash_label = QtWidgets.QLabel("Hashing Algorithms: ")
         self.md5_checkbox = QtWidgets.QCheckBox("md5", self)
         self.md5_checkbox.setChecked(hash_algos["md5"])
@@ -727,11 +729,11 @@ class MainWindow(QtWidgets.QMainWindow):
         message = QtWidgets.QMessageBox()
         message.setIcon(QtWidgets.QMessageBox.Information)
         message.setText("gemino")
-        message.setInformativeText("gemino file duplicator\n\nv1.0.0 - January 2019\n\nDeveloped with ❤️ by Francesco Servida\nUniversity of Lausanne\n\nLicensed under GPLv3\nhttps://opensource.org/licenses/GPL-3.0")
+        message.setInformativeText(
+            "gemino file duplicator\n\nv1.0.0 - January 2019\n\nDeveloped with ❤️ by Francesco Servida\nUniversity of Lausanne\n\nLicensed under GPLv3\nhttps://opensource.org/licenses/GPL-3.0")
         message.setWindowTitle("About")
         message.setStandardButtons(QtWidgets.QMessageBox.Ok)
         message.exec_()
-
 
 
 ################ main.py #############################
