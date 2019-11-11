@@ -14,4 +14,4 @@ python-dateutil==2.7.5
 s3transfer==0.1.13
 shiboken2==5.12.0
 six==1.12.0
-urllib3==1.24.1
+urllib3==1.24.2
