@@ -1,4 +1,4 @@
-from fbs_runtime.application_context import ApplicationContext
+from fbs_runtime.application_context.PySide2 import ApplicationContext
 
 import sys
 
@@ -14,6 +14,8 @@ import shutil
 import hashlib
 from threading import Thread, current_thread
 from datetime import datetime
+from copy import copy
+from logging import Logger
 
 
 class SizeCalcThread(QThread):
@@ -61,13 +63,15 @@ class CopyBuffer(Thread):
 class CopyThread(QThread):
     copy_progress = Signal(object)
 
-    def __init__(self, src: str, destinations: list, hashes: list, total_files: int):
+    def __init__(self, src: str, destinations: list, hashes: list, total_files: int, total_bytes: int, metadata: list):
         super().__init__()
         self.src = src
         self.destinations = destinations
         self.hashes = hashes
         self.total_files = total_files
         self.file_hashes = {}
+        self.total_bytes = total_bytes
+        self.metadata = metadata
 
     def run(self):
         try:
@@ -77,11 +81,41 @@ class CopyThread(QThread):
 
     def copy(self, src: str, destinations: list, hashes: list):
         print("Copying Files...")
+
         base_path = path.basename(path.normpath(src))
 
         buffer_size = 64 * 1024 * 1024  # Read 64M at a time
 
         files_hashes = {}  # {filepath: {hash_name:hash_value, ...}, ...}
+
+        start_time = datetime.now()
+        for dst in destinations:
+            try:
+                report_file_path = path.join(dst, f'{base_path}_copy_report.txt')
+                with open(report_file_path, "w") as report_file:
+                    report_file.write(f"# Gemino Copy Report\n")
+                    report_file.write(f"# Gemino v1.1.0\n")
+                    report_file.write(f"#####################################################\n\n")
+
+                    report_file.write(f"################## Case Metadata ####################\n")
+                    report_file.write(f"Operator: {self.metadata['operator']}\n")
+                    report_file.write(f"Intake: {self.metadata['intake']}\n")
+                    report_file.write(f"Notes:\n{self.metadata['notes']}\n")
+                    report_file.write(f"\n")
+
+                    report_file.write(f"################## Copy Information #################\n")
+                    report_file.write(f"Source: {src}\n")
+                    report_file.write(f"Destination: {dst}\n")
+                    report_file.write(f"Total Files: {self.total_files}\n")
+                    report_file.write(f"Size: {self.total_bytes} Bytes (~ {self.total_bytes / 10 ** 9} GB)\n")
+                    report_file.write(f"Hashes: {' - '.join(self.hashes)}\n")
+                    report_file.write(f"\n")
+
+                    report_file.write(f"################## Copy Report ######################\n")
+                    report_file.write(f"Start Time: {start_time.isoformat()}\n")
+            except FileNotFoundError as error:
+                print(f"Error writing to folder: {error}")
+                raise
 
         filecount = 0
         copied_size = 0
@@ -96,10 +130,12 @@ class CopyThread(QThread):
                     dst_path = path.join(dst, dst_folder)
                     os.makedirs(dst_path, exist_ok=True)
                     shutil.copystat(dirpath, dst_path)
+
                 except FileNotFoundError as error:
                     # If a device is not mounted anymore we will get a FileNotFound Error
                     print("{} is not available anymore! Deleting from destination list!".format(dst))
                     destinations.pop(destinations.index(dst))
+                    raise
 
             for filename in filenames:
 
@@ -190,44 +226,69 @@ class CopyThread(QThread):
         # print("Total Copied Bytes: %s" % copied_size)
 
         # Write Hash Files
-        end_date = datetime.now().isoformat()
+        end_time = datetime.now()
         print("Writing Hash Files...")
-        for hash_algo in hashes:
-            try:
-                hash_file_path = path.join(src, '%s_gemino.txt' % hash_algo)
-                with open(hash_file_path, "w") as hash_file:
-                    hash_file.write(
-                        "Gemino Hash File\nAlgorithm: {}\nGenerated on: {}\n----------------\n\n".format(
-                            hash_algo, end_date
-                        )
-                    )
-                    for file, file_hashes in files_hashes.items():
-                        hash_file.write("{} - {}\n".format(file_hashes[hash_algo], file))
-            except FileNotFoundError:
-                print("Unable to write hash file in source dir, volume not connected anymore.")
-                raise
-            except OSError as error:
-                if error.errno in (errno.EROFS, errno.EACCES):
-                    print("Unable to write hash file in source dir, volume is readonly or insufficient permissions.")
-                else:
-                    raise
+        # 2020-03-01 - Disabled writing to source dir by default. Will come back once a checkbox is present.
+        # for hash_algo in hashes:
+        #     try:
+        #         report_file_path = path.join(src, '%s_gemino.txt' % hash_algo)
+        #         with open(report_file_path, "w") as hash_file:
+        #             hash_file.write(
+        #                 "Gemino Hash File\nAlgorithm: {}\nGenerated on: {}\n----------------\n\n".format(
+        #                     hash_algo, end_date
+        #                 )
+        #             )
+        #             for file, file_hashes in files_hashes.items():
+        #                 hash_file.write("{} - {}\n".format(file_hashes[hash_algo], file))
+        #     except FileNotFoundError:
+        #         print("Unable to write hash file in source dir, volume not connected anymore.")
+        #         raise
+        #     except OSError as error:
+        #         if error.errno in (errno.EROFS, errno.EACCES):
+        #             print("Unable to write hash file in source dir, volume is readonly or insufficient permissions.")
+        #         raise
 
         for dst in destinations:
-            dst_folder = path.normpath(path.join(dst, base_path))
+            try:
+                report_file_path = path.join(dst, f'{base_path}_copy_report.txt')
+                with open(report_file_path, "a") as report_file:
+                    report_file.write(f"End Time: {end_time.isoformat()}\n")
+                    report_file.write(f"Duration: {end_time - start_time}\n")
+                    report_file.write("\n")
+                    report_file.write(f"################## Source Hashes ######################\n")
+                    for file, file_hashes in files_hashes.items():
+                        hash_values = [file_hashes[hash_algo] for hash_algo in hashes]
+                        report_file.write(f"{' - '.join(hash_values)} - {file}\n")
+            except FileNotFoundError as error:
+                print(f"Error writing to report: {error}")
+                raise
+
             for hash_algo in hashes:
-                hash_file_path = path.join(dst_folder, '%s_gemino.txt' % hash_algo)
+                hash_file_path = path.join(dst, f'{base_path}.{hash_algo}')
                 try:
                     with open(hash_file_path, "w") as hash_file:
-                        hash_file.write(
-                            "Gemino Hash File\nAlgorithm: {}\nGenerated on: {}\n----------------\n\n".format(
-                                hash_algo, end_date
-                            )
-                        )
                         for file, file_hashes in files_hashes.items():
-                            hash_file.write("{} - {}\n".format(file_hashes[hash_algo], file))
+                            hash_file.write(f"{file_hashes[hash_algo]} {file}\n")
                 except FileNotFoundError:
                     print("Unable to write hash file in destination dir, volume not connected anymore.")
                     raise
+
+        # for dst in destinations:
+        #     dst_folder = path.normpath(path.join(dst, base_path))
+        #     for hash_algo in hashes:
+        #         report_file_path = path.join(dst_folder, '%s_gemino.txt' % hash_algo)
+        #         try:
+        #             with open(report_file_path, "a") as hash_file:
+        #                 hash_file.write(
+        #                     "Gemino Source Hash Report\nAlgorithm: {}\nGenerated on: {}\n----------------\n\n".format(
+        #                         hash_algo, end_time.isoformat()
+        #                     )
+        #                 )
+        #                 for file, file_hashes in files_hashes.items():
+        #                     hash_file.write("{} - {}\n".format(file_hashes[hash_algo], file))
+        #         except FileNotFoundError:
+        #             print("Unable to write hash file in destination dir, volume not connected anymore.")
+        #             raise
 
         # Verify Hashes
         print("Verifying Hashes...")
@@ -236,51 +297,67 @@ class CopyThread(QThread):
         for dst in destinations:
             hashed_size = 0
             filecount = 0
-            hash_error = False
-            for filename, file_hashes in files_hashes.items():
-                # Update File Progress
-                filecount += 1
-                progress[dst] = {'status': 'hashing', 'processed_bytes': hashed_size, 'processed_files': filecount,
-                                 'current_file': ''}
-                self.copy_progress.emit((1, progress))
-                filepath = path.normpath(path.join(dst, base_path, filename))
-                with open(filepath, "rb") as file:
-                    dst_file_hashes = {hash_algo: hashlib.__getattribute__(hash_algo)() for hash_algo in hashes if
-                                       hasattr(hashlib, hash_algo)}
-
-                    data = file.read(buffer_size)
-                    while data:
-                        for hash_algo, hash_buffer in dst_file_hashes.items():
-                            # Not threaded because CPU bound
-                            # Improving performance would need multiprocesses, we'll deal with it another time
-                            hash_buffer.update(data)
-                        hashed_size += len(data)
-                        # Update Byte Progress
+            hash_error = 0
+            try:
+                report_file_path = path.join(dst, f'{base_path}_copy_report.txt')
+                with open(report_file_path, "a") as report_file:
+                    report_file.write("\n")
+                    report_file.write(f"################## Verification Report ######################\n")
+                    for filename, file_hashes in files_hashes.items():
+                        # Update File Progress
+                        filecount += 1
                         progress[dst] = {'status': 'hashing', 'processed_bytes': hashed_size,
-                                         'processed_files': filecount, 'current_file': filename}
+                                         'processed_files': filecount,
+                                         'current_file': ''}
+                        self.copy_progress.emit((1, progress))
+                        filepath = path.normpath(path.join(dst, base_path, filename))
+                        this_file_error = False
+                        with open(filepath, "rb") as file:
+                            dst_file_hashes = {hash_algo: hashlib.__getattribute__(hash_algo)() for hash_algo in hashes
+                                               if
+                                               hasattr(hashlib, hash_algo)}
+
+                            data = file.read(buffer_size)
+                            while data:
+                                for hash_algo, hash_buffer in dst_file_hashes.items():
+                                    # Not threaded because CPU bound
+                                    # Improving performance would need multiprocesses, we'll deal with it another time
+                                    hash_buffer.update(data)
+                                hashed_size += len(data)
+                                # Update Byte Progress
+                                progress[dst] = {'status': 'hashing', 'processed_bytes': hashed_size,
+                                                 'processed_files': filecount, 'current_file': filename}
+                                self.copy_progress.emit((1, progress))
+
+                                data = file.read(buffer_size)
+
+                            for hash_algo, hash_buffer in dst_file_hashes.items():
+                                dst_file_hashes[hash_algo] = hash_buffer.hexdigest()
+
+                            for hash_algo, file_hash in file_hashes.items():
+                                if dst_file_hashes[hash_algo] != file_hash:
+                                    print("COPY ERROR - %s HASH for %s file DIFFERS!" % (hash_algo, filename))
+                                    progress[dst] = {'status': 'error_hash', 'processed_bytes': hashed_size,
+                                                     'processed_files': filecount, 'current_file': filename}
+                                    self.copy_progress.emit((1, progress))
+                                    hash_error += 1
+                        if this_file_error:
+                            report_file.write(f"Verification failed for file: {filename}\n")
+
+                    if hash_error:
+                        report_file.write(f"Verification failed for {hash_error} files.\n")
+                        report_file.write(f"Verification successful for {filecount} files\n")
+
+                    if not hash_error:
+                        # Signal the end with no errors of the hash verification for the current volume
+                        progress[dst] = {'status': 'done', 'processed_bytes': hashed_size,
+                                         'processed_files': filecount, 'current_file': ''}
+                        report_file.write(f"Verification successful for {filecount} files\n")
                         self.copy_progress.emit((1, progress))
 
-                        data = file.read(buffer_size)
-
-                    for hash_algo, hash_buffer in dst_file_hashes.items():
-                        dst_file_hashes[hash_algo] = hash_buffer.hexdigest()
-
-                    for hash_algo, file_hash in file_hashes.items():
-                        if dst_file_hashes[hash_algo] != file_hash:
-                            print("COPY ERROR - %s HASH for %s file DIFFERS!" % (hash_algo, filename))
-                            progress[dst] = {'status': 'error_hash', 'processed_bytes': hashed_size,
-                                             'processed_files': filecount, 'current_file': filename}
-                            self.copy_progress.emit((1, progress))
-                            hash_error = True
-
-                if hash_error:
-                    # Terminate file verification for current volume if a single hash is not valid
-                    break
-            if not hash_error:
-                # Signal the end with no errors of the hash verification for the current volume
-                progress[dst] = {'status': 'done', 'processed_bytes': hashed_size,
-                                 'processed_files': filecount, 'current_file': ''}
-                self.copy_progress.emit((1, progress))
+            except FileNotFoundError as error:
+                print(f"Error writing to report: {error}")
+                raise
 
         # Done
         print("Done!")
@@ -417,7 +494,7 @@ class ProgressWindow(QtWidgets.QDialog):
         'cancel': 'File copy has been interrupted',
     }
 
-    def __init__(self, src: str, dst: list, hash_algos: list, total_files: int, total_bytes: int):
+    def __init__(self, src: str, dst: list, hash_algos: list, total_files: int, total_bytes: int, metadata: list):
         super().__init__()
 
         self.setWindowTitle("Copy Progress")
@@ -459,7 +536,7 @@ class ProgressWindow(QtWidgets.QDialog):
         self.update_ui()
 
         # Start copying files
-        self.thread = CopyThread(src, dst, hash_algos, total_files)
+        self.thread = CopyThread(src, dst, hash_algos, total_files, total_bytes, metadata)
         self.thread.copy_progress.connect(self.update_progress, QtCore.Qt.QueuedConnection)
         self.thread.start()
 
@@ -474,7 +551,7 @@ class ProgressWindow(QtWidgets.QDialog):
         if status == -1:
             self.status = 'cancel'
             self.update_ui()
-            error_box("Halp! An Error Occurred!", "Bob is Sad T.T")
+            error_box("Halp! An Error Occurred!", f"Bob is Sad T.T\n\nDetails:\n{progress[1]}")
             return
 
         data = progress[1]
@@ -506,6 +583,16 @@ class ProgressWindow(QtWidgets.QDialog):
         # Terminate the thread
         self.thread.terminate()
         self.status = self.STATUSES[3]  # cancel
+
+        base_path = path.basename(path.normpath(self.src))
+        for dst in self.dst:
+            try:
+                report_file_path = path.join(dst, f'{base_path}_copy_report.txt')
+                with open(report_file_path, "a") as report_file:
+                    report_file.write(f"\nUser interrupted copy process at: {datetime.now().isoformat()}")
+            except FileNotFoundError as error:
+                print(f"Error writing to report: {error}")
+                error_box('Error Writing to Report', error)
         self.update_ui()
 
 
@@ -538,54 +625,98 @@ class MainWidget(QtWidgets.QWidget):
         self.settings = QtCore.QSettings("ch.unil.esc-cyber", "Gemino")
 
         # Instantiate Widgets
-        self.dir_dialog = QtWidgets.QFileDialog(self)
-        self.dir_dialog.setFileMode(QtWidgets.QFileDialog.Directory)
-        self.dir_dialog.setOption(QtWidgets.QFileDialog.ShowDirsOnly)
-        self.dir_dialog_button = QtWidgets.QPushButton("Choose Files")
-        self.dir_dialog_button.clicked.connect(self.open_files)
-        self.dir_label = QtWidgets.QLabel("No Directory Selected")
+        # Source Dir
+        self.src_dir_dialog = QtWidgets.QFileDialog(self)
+        self.src_dir_dialog.setFileMode(QtWidgets.QFileDialog.Directory)
+        self.src_dir_dialog.setOption(QtWidgets.QFileDialog.ShowDirsOnly)
+        self.src_dir_dialog_button = QtWidgets.QPushButton("Choose Source Folder")
+        self.src_dir_dialog_button.clicked.connect(self.open_files)
+        self.src_dir_label = QtWidgets.QLabel("No Directory Selected")
         self.files_count_label = QtWidgets.QLabel("0 Files")
         self.size_label = QtWidgets.QLabel("0 GB")
+        # Destination Dir
+        self.dst_vbar = QtWidgets.QFrame()
+        self.dst_vbar.setFrameShape(QtWidgets.QFrame.VLine)
+        self.destinations_label = QtWidgets.QLabel("Destinations:")
+        self.dst_dir_dialog = QtWidgets.QFileDialog(self)
+        self.dst_dir_dialog.setFileMode(QtWidgets.QFileDialog.Directory)
+        self.dst_dir_dialog.setOption(QtWidgets.QFileDialog.ShowDirsOnly)
+        self.dst_dir_dialog_button = QtWidgets.QPushButton("Choose Destination Folder")
+        self.dst_dir_dialog_button.clicked.connect(self.select_dst_folder)
+        self.dst_dir_label = QtWidgets.QLabel("No Directory Selected")
+        self.dst_dir_information_label = QtWidgets.QLabel("Select a destination folder to view storage details")
+        # Drive buttons
         self.select_all_button = QtWidgets.QPushButton("Select All Drives")
         self.select_all_button.clicked.connect(self.select_all)
         self.deselect_all_button = QtWidgets.QPushButton("Deselect All Drives")
         self.deselect_all_button.clicked.connect(self.deselect_all)
         self.refresh_button = QtWidgets.QPushButton("Refresh Available Drives")
         self.refresh_button.clicked.connect(self.refresh_button_handler)
+        # Copy Buttons
         self.run_copy_button = QtWidgets.QPushButton("Start Copy")
         self.run_copy_button.clicked.connect(self.start_copy)
         self.volumes_list_label = QtWidgets.QLabel("Target Drives:")
         self.volumes_list = QtWidgets.QListWidget(self)
+        # Report & Hashing
+        self.report_hbar = QtWidgets.QFrame()
+        self.report_hbar.setFrameShape(QtWidgets.QFrame.HLine)
+        self.operator_name_label = QtWidgets.QLabel("Operator:")
+        self.operator_name_text_field = QtWidgets.QLineEdit()
+        self.intake_number_label = QtWidgets.QLabel("Inake:")
+        self.intake_number_text_field = QtWidgets.QLineEdit()
+        self.notes_label = QtWidgets.QLabel("Notes:")
+        self.notes_text_field = QtWidgets.QTextEdit()
         self.init_hashing_widgets()
 
         # Layout Management
-        self.layout = QtWidgets.QVBoxLayout()
-        self.dir_dialog_layout = QtWidgets.QHBoxLayout()
-        self.dir_dialog_layout.addWidget(self.dir_dialog_button)
-        self.dir_dialog_layout.addWidget(self.dir_label)
-        self.layout.addLayout(self.dir_dialog_layout)
+        self.layout = QtWidgets.QHBoxLayout()
+        self.left_layout = QtWidgets.QVBoxLayout()
+        self.right_layout = QtWidgets.QVBoxLayout()
+        self.layout.addLayout(self.left_layout)
+        self.layout.addWidget(self.dst_vbar)
+        self.layout.addLayout(self.right_layout)
+        self.src_dir_dialog_layout = QtWidgets.QHBoxLayout()
+        self.src_dir_dialog_layout.addWidget(self.src_dir_dialog_button)
+        self.src_dir_dialog_layout.addWidget(self.src_dir_label)
+        self.left_layout.addLayout(self.src_dir_dialog_layout)
         self.file_info_layout = QtWidgets.QHBoxLayout()
         self.file_info_layout.addWidget(self.files_count_label)
         self.file_info_layout.addWidget(self.size_label)
-        self.layout.addLayout(self.file_info_layout)
+        self.left_layout.addLayout(self.file_info_layout)
+        self.left_layout.addWidget(self.report_hbar)
+        self.metadata_layout = QtWidgets.QHBoxLayout()
+        self.metadata_layout.addWidget(self.operator_name_label)
+        self.metadata_layout.addWidget(self.operator_name_text_field)
+        self.metadata_layout.addWidget(self.intake_number_label)
+        self.metadata_layout.addWidget(self.intake_number_text_field)
+        self.left_layout.addLayout(self.metadata_layout)
+        self.left_layout.addWidget(self.notes_label)
+        self.left_layout.addWidget(self.notes_text_field)
         self.hash_layout = QtWidgets.QHBoxLayout()
         self.hash_layout.addWidget(self.hash_label)
         self.hash_layout.addWidget(self.md5_checkbox)
         self.hash_layout.addWidget(self.sha1_checkbox)
         self.hash_layout.addWidget(self.sha256_checkbox)
-        self.layout.addLayout(self.hash_layout)
-        self.layout.addWidget(self.volumes_list_label)
-        self.layout.addWidget(self.volumes_list)
+        self.left_layout.addLayout(self.hash_layout)
+        self.right_layout.addWidget(self.destinations_label)
+        self.dst_dir_dialog_layout = QtWidgets.QHBoxLayout()
+        self.dst_dir_dialog_layout.addWidget(self.dst_dir_dialog_button)
+        self.dst_dir_dialog_layout.addWidget(self.dst_dir_label)
+        self.right_layout.addLayout(self.dst_dir_dialog_layout)
+        self.right_layout.addWidget(self.dst_dir_information_label)
+        self.right_layout.addWidget(self.volumes_list_label)
+        self.right_layout.addWidget(self.volumes_list)
         self.volumes_select_layout = QtWidgets.QHBoxLayout()
         self.volumes_select_layout.addWidget(self.select_all_button)
         self.volumes_select_layout.addWidget(self.deselect_all_button)
         self.volumes_select_layout.addWidget(self.refresh_button)
-        self.layout.addLayout(self.volumes_select_layout)
-        self.layout.addWidget(self.run_copy_button)
+        self.right_layout.addLayout(self.volumes_select_layout)
+        self.right_layout.addWidget(self.run_copy_button)
         self.setLayout(self.layout)
 
         # Init data and fill widgets
         self.dir_size = 0
+        self.dst_folder = None
         self.get_volumes()
         self.populate_volumes_widget()
 
@@ -641,15 +772,39 @@ class MainWidget(QtWidgets.QWidget):
         hash_algos = [hash_algo.text() for hash_algo in self.hashing_algos.buttons() if hash_algo.isChecked()]
         dst_volumes = [item.data(256).rootPath() for item in self.volumes_list.selectedItems() if
                        not item.data(256).isReadOnly() and item.data(256).bytesFree() > self.dir_size]
+        if self.dst_folder:
+            dst_folder_storage_info = QtCore.QStorageInfo(self.dst_folder)
+            dst_folder_writable = os.access(self.dst_folder, os.W_OK)
+            if dst_folder_storage_info.isReady() and dst_folder_writable and dst_folder_storage_info.bytesFree() > self.dir_size:
+                dst_volumes.append(self.dst_folder)
+
+        dst_volumes = self.check_existing(dst_volumes)
+
         if dst_volumes:
             # At least one drive selected and writable
-            progress = ProgressWindow(self.source_dir, dst_volumes, hash_algos, self.files_count, self.dir_size)
+            progress = ProgressWindow(self.source_dir, dst_volumes, hash_algos, self.files_count, self.dir_size,
+                                      self.metadata)
             progress.setWindowFlags(QtCore.Qt.CustomizeWindowHint)
             progress.setModal(True)
             progress.exec_()
             # copy_files(self.source_dir, dst_volumes, hash_algos)
         else:
             error_box("No Writable/Valid Drive Selected!")
+
+    def check_existing(self, volumes):
+        for i in range(len(volumes)):
+            dst_path = os.path.join(volumes[i], os.path.basename(self.source_dir))
+            if os.path.exists(dst_path) and os.listdir(dst_path):
+                # Folder not empty alert user
+                print(f"{dst_path} not empty!")
+                if self.confirm_overwrite(dst_path):
+                    print("User chose to overwrite")
+                    pass
+                else:
+                    # If user cancels:
+                    print("User chose to skip folder, remove from destinations.")
+                    volumes.pop(i)
+        return volumes
 
     def init_hashing_widgets(self):
         # Hash Related Widgets
@@ -675,10 +830,17 @@ class MainWidget(QtWidgets.QWidget):
         self.hashing_algos.addButton(self.sha256_checkbox)
 
     def open_files(self):
-        self.source_dir = self.dir_dialog.getExistingDirectory(self, "Choose Directory to Copy")
-        self.dir_label.setText(self.source_dir if self.source_dir else "No Directory Selected")
+        self.source_dir = self.src_dir_dialog.getExistingDirectory(self, "Choose Directory to Copy")
+        self.src_dir_label.setText(self.source_dir if self.source_dir else "No Directory Selected")
         if self.source_dir:
             self.get_size()
+
+    def select_dst_folder(self):
+        self.dst_folder = self.dst_dir_dialog.getExistingDirectory(self, "Choose Directory to Copy")
+        self.dst_dir_label.setText(self.dst_folder if self.dst_folder else "No Directory Selected")
+        if not self.dst_folder:
+            self.dst_dir_information_label.setText("Select a destination folder to view storage details")
+        self.dst_folder_check()
 
     def select_all(self):
         self.volumes_list.selectAll()
@@ -709,6 +871,56 @@ class MainWidget(QtWidgets.QWidget):
         # Kill Modal View
         self.loading.close()
 
+    def dst_folder_check(self):
+        if self.dst_folder:
+            # Only execute if a destination folder has been selected
+            dst_storage_info = QtCore.QStorageInfo(self.dst_folder)
+            dst_bytes_available = dst_storage_info.bytesAvailable()
+            dst_folder_writable = os.access(self.dst_folder, os.W_OK)
+            if dst_bytes_available > self.dir_size:
+                # Enough space available on destination
+                self.dst_dir_information_label.setText("Enough space available on destination")
+            else:
+                self.dst_dir_information_label.setText("NOT Enough space available on destination")
+
+            if dst_folder_writable and dst_storage_info.bytesFree() > self.dir_size:
+                self.dst_dir_information_label.setText(
+                    "On volume: {} - {} - {:.2f} GB Free".format(dst_storage_info.name(),
+                                                                 dst_storage_info.fileSystemType().data().decode(),
+                                                                 dst_storage_info.bytesFree() / 10 ** 9))
+            else:
+                errors = []
+                if not dst_folder_writable:
+                    errors.append("ReadOnly")
+                if dst_storage_info.bytesFree() < self.dir_size:
+                    errors.append("Insufficient Space")
+                self.dst_dir_information_label.setText(
+                    "On volume: {} - {} - {:.2f} GB Free - ! {} !".format(
+                        dst_storage_info.name(),
+                        dst_storage_info.fileSystemType().data().decode(),
+                        dst_storage_info.bytesFree() / 10 ** 9,
+                        ", ".join(errors))
+                )
+                # self.dst_dir_information_label.setTextColor(QtGui.QColor(255, 0, 0))
+
+    @property
+    def metadata(self):
+        return {
+            'operator': self.operator_name_text_field.text(),
+            'intake': self.intake_number_text_field.text(),
+            'notes': self.notes_text_field.toPlainText(),
+        }
+
+    def confirm_overwrite(self, path):
+        confirmation = QtWidgets.QMessageBox()
+        choice = confirmation.question(self, 'Confirm Overwrite',
+                                       f'Directory: {path} is not empty.\nData contained may be overwritten without additional confirmation.\n\nDo you want to continue?',
+                                       QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No)
+        if choice == QtWidgets.QMessageBox.Yes:
+            return True
+        else:
+            return False
+
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, version):
@@ -730,7 +942,7 @@ class MainWindow(QtWidgets.QMainWindow):
         message.setIcon(QtWidgets.QMessageBox.Information)
         message.setText("gemino")
         message.setInformativeText(
-            "gemino file duplicator\n\nv{} - January 2019\n\nDeveloped with ❤️ by Francesco Servida\nUniversity of Lausanne\n\nLicensed under GPLv3\nhttps://opensource.org/licenses/GPL-3.0".format(
+            "gemino file duplicator\n\nv{} - January 2019\n\nDeveloped with ❤️ by Francesco Servida during the work at:\n - University of Lausanne\n\n - United Nations Investigative Team for Accountability of crimes committed by Da’esh/ISIL (UNITAD)\n\nLicensed under GPLv3\nhttps://opensource.org/licenses/GPL-3.0".format(
                 self.version))
         message.setWindowTitle("About")
         message.setStandardButtons(QtWidgets.QMessageBox.Ok)
