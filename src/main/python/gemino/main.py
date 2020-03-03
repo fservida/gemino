@@ -732,8 +732,12 @@ class MainWidget(QtWidgets.QWidget):
         for volume in self.volumes:
             if not volume.isReadOnly() and volume.bytesFree() > self.dir_size:
                 item = QtWidgets.QListWidgetItem(
-                    "{} - {} - {:.2f} GB Free".format(volume.name(), volume.fileSystemType().data().decode(),
-                                                      volume.bytesFree() / 10 ** 9))
+                    "{} - {} - {} - {} - {:.2f} GB Free".format(volume.rootPath(),
+                                                                volume.name(),
+                                                                volume.device().data().decode(),
+                                                                volume.fileSystemType().data().decode(),
+                                                                volume.bytesFree() / 10 ** 9)
+                )
                 item.setData(256, volume)
                 self.volumes_list.addItem(item)
             else:
