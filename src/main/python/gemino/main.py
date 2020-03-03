@@ -94,7 +94,7 @@ class CopyThread(QThread):
                 report_file_path = path.join(dst, f'{base_path}_copy_report.txt')
                 with open(report_file_path, "w") as report_file:
                     report_file.write(f"# Gemino Copy Report\n")
-                    report_file.write(f"# Gemino v2.0.0\n")
+                    report_file.write(f"# Gemino v2.0.1\n")
                     report_file.write(f"#####################################################\n\n")
 
                     report_file.write(f"################## Case Metadata ####################\n")
