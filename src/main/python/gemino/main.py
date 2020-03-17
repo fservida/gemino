@@ -29,14 +29,7 @@ class SizeCalcThread(QThread):
         dir_size = 0
         total_files = 0
         for dirpath, dirnames, filenames in os.walk(self.folder):
-            rel_path = path.relpath(dirpath, self.folder)
-
             for filename in filenames:
-
-                if rel_path == "." and 'gemino.txt' in filename:
-                    # Ignore gemino's hash files (only if in root directory, as we're going to replace them)
-                    continue
-
                 try:
                     filepath = path.join(dirpath, filename)
                     dir_size += path.getsize(filepath)
@@ -61,6 +54,7 @@ class CopyBuffer(Thread):
 
 
 class CopyThread(QThread):
+
     copy_progress = Signal(object)
 
     def __init__(self, src: str, destinations: list, hashes: list, total_files: int, total_bytes: int, metadata: list):
@@ -72,17 +66,27 @@ class CopyThread(QThread):
         self.file_hashes = {}
         self.total_bytes = total_bytes
         self.metadata = metadata
+        self.base_path = path.basename(path.normpath(src)) if path.basename(path.normpath(src)) != '' else '[root]'
 
     def run(self):
         try:
             self.copy(self.src, self.destinations, self.hashes)
         except Exception as error:
+            for dst in self.destinations:
+                try:
+                    report_file_path = path.join(dst, f'{self.base_path}_copy_report.txt')
+                    with open(report_file_path, "a", encoding='utf-8') as report_file:
+                        report_file.write(f"ERROR DURING COPY:\n")
+                        report_file.write(str(error))
+                except FileNotFoundError as error:
+                    print(f"Error writing to report: {error}")
+                    pass
             self.copy_progress.emit((-1, error))
 
     def copy(self, src: str, destinations: list, hashes: list):
         print("Copying Files...")
 
-        base_path = path.basename(path.normpath(src))
+        base_path = self.base_path
 
         buffer_size = 64 * 1024 * 1024  # Read 64M at a time
 
@@ -105,7 +109,7 @@ class CopyThread(QThread):
 
                     report_file.write(f"################## Copy Information #################\n")
                     report_file.write(f"Source: {src}\n")
-                    report_file.write(f"Destination: {dst}\n")
+                    report_file.write(f"Destination: {path.join(dst, base_path)}\n")
                     report_file.write(f"Total Files: {self.total_files}\n")
                     report_file.write(f"Size: {self.total_bytes} Bytes (~ {self.total_bytes / 10 ** 9} GB)\n")
                     report_file.write(f"Hashes: {' - '.join(self.hashes)}\n")
@@ -223,8 +227,6 @@ class CopyThread(QThread):
                     raise
                 files_hashes[path.normpath(path.join(rel_path, filename))] = file_hashes
 
-        # print("Total Copied Bytes: %s" % copied_size)
-
         # Write Hash Files
         end_time = datetime.now()
         print("Writing Hash Files...")
@@ -272,23 +274,6 @@ class CopyThread(QThread):
                 except FileNotFoundError:
                     print("Unable to write hash file in destination dir, volume not connected anymore.")
                     raise
-
-        # for dst in destinations:
-        #     dst_folder = path.normpath(path.join(dst, base_path))
-        #     for hash_algo in hashes:
-        #         report_file_path = path.join(dst_folder, '%s_gemino.txt' % hash_algo)
-        #         try:
-        #             with open(report_file_path, "a", encoding='utf-8') as hash_file:
-        #                 hash_file.write(
-        #                     "Gemino Source Hash Report\nAlgorithm: {}\nGenerated on: {}\n----------------\n\n".format(
-        #                         hash_algo, end_time.isoformat()
-        #                     )
-        #                 )
-        #                 for file, file_hashes in files_hashes.items():
-        #                     hash_file.write("{} - {}\n".format(file_hashes[hash_algo], file))
-        #         except FileNotFoundError:
-        #             print("Unable to write hash file in destination dir, volume not connected anymore.")
-        #             raise
 
         # Verify Hashes
         print("Verifying Hashes...")
