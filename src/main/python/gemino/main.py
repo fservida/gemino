@@ -952,7 +952,7 @@ class MainWindow(QtWidgets.QMainWindow):
         message.setIcon(QtWidgets.QMessageBox.Information)
         message.setText("gemino")
         message.setInformativeText(
-            "gemino file duplicator\n\nv{} - January 2019\n\nDeveloped with ❤️ by Francesco Servida during the work at:\n - University of Lausanne\n\n - United Nations Investigative Team for Accountability of crimes committed by Da’esh/ISIL (UNITAD)\n\nLicensed under GPLv3\nhttps://opensource.org/licenses/GPL-3.0".format(
+            "gemino file duplicator\n\nv{} - January 2019\n\nDeveloped with ❤️ by Francesco Servida during the work at:\n - University of Lausanne\n - United Nations Investigative Team for Accountability of crimes committed by Da’esh/ISIL (UNITAD)\n\nLicensed under GPLv3\nhttps://opensource.org/licenses/GPL-3.0".format(
                 self.version))
         message.setWindowTitle("About")
         message.setStandardButtons(QtWidgets.QMessageBox.Ok)
