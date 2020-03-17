@@ -94,7 +94,7 @@ class CopyThread(QThread):
                 report_file_path = path.join(dst, f'{base_path}_copy_report.txt')
                 with open(report_file_path, "w") as report_file:
                     report_file.write(f"# Gemino Copy Report\n")
-                    report_file.write(f"# Gemino v2.0.1\n")
+                    report_file.write(f"# Gemino v2.1.0\n")
                     report_file.write(f"#####################################################\n\n")
 
                     report_file.write(f"################## Case Metadata ####################\n")
@@ -219,8 +219,8 @@ class CopyThread(QThread):
                 except (FileNotFoundError, OSError):
                     # FileNotFoundError if source disconnected and we try to open it
                     # OSError if source disconnected and we try to read from it
-                    print("Lost source!")
-                    raise IOError("It seems like we lost access to the source... Bob is sad :-(")
+                    print("Lost source! (Or permission problem)")
+                    raise
                 files_hashes[path.normpath(path.join(rel_path, filename))] = file_hashes
 
         # print("Total Copied Bytes: %s" % copied_size)
@@ -369,7 +369,7 @@ class CopyThread(QThread):
 
 
 from PySide2 import QtWidgets, QtCore, QtGui
-
+import webbrowser
 
 # from .threads import SizeCalcThread, CopyThread
 
@@ -405,19 +405,22 @@ class VolumeProgress(QtWidgets.QWidget):
     def __setup_ui(self):
         self.__volume_label = QtWidgets.QLabel()
         self.__current_status_label = QtWidgets.QLabel()
-        self.__current_status_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self.__current_status_label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
         self.__progress_bar = QtWidgets.QProgressBar()
         self.__current_file_label = QtWidgets.QLabel()
         self.__size_progress_label = QtWidgets.QLabel()
         self.__size_progress_label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
         self.__file_progress_label = QtWidgets.QLabel()
         self.__file_progress_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self.__open_folder_button = QtWidgets.QPushButton('Open Destination')
+        self.__open_folder_button.clicked.connect(self.__open_folder)
 
         self.__layout_container = QtWidgets.QVBoxLayout()
         self.__layout_first_row = QtWidgets.QHBoxLayout()
         self.__layout_third_row = QtWidgets.QHBoxLayout()
         self.__layout_first_row.addWidget(self.__volume_label)
         self.__layout_first_row.addWidget(self.__current_status_label)
+        self.__layout_first_row.addWidget(self.__open_folder_button)
         self.__layout_third_row.addWidget(self.__current_file_label)
         self.__layout_third_row.addWidget(self.__size_progress_label)
         self.__layout_third_row.addWidget(self.__file_progress_label)
@@ -483,6 +486,9 @@ class VolumeProgress(QtWidgets.QWidget):
     @volume.setter
     def volume(self, volume):
         raise PermissionError('The Volume associated to a widget cannot be changed after the widget creation!')
+
+    def __open_folder(self):
+        webbrowser.open(f'file://{self.__volume_name}')
 
 
 class ProgressWindow(QtWidgets.QDialog):
