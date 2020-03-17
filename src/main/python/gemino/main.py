@@ -92,9 +92,9 @@ class CopyThread(QThread):
         for dst in destinations:
             try:
                 report_file_path = path.join(dst, f'{base_path}_copy_report.txt')
-                with open(report_file_path, "w") as report_file:
+                with open(report_file_path, "w", encoding='utf-8') as report_file:
                     report_file.write(f"# Gemino Copy Report\n")
-                    report_file.write(f"# Gemino v2.1.0\n")
+                    report_file.write(f"# Gemino v2.1.1\n")
                     report_file.write(f"#####################################################\n\n")
 
                     report_file.write(f"################## Case Metadata ####################\n")
@@ -232,7 +232,7 @@ class CopyThread(QThread):
         # for hash_algo in hashes:
         #     try:
         #         report_file_path = path.join(src, '%s_gemino.txt' % hash_algo)
-        #         with open(report_file_path, "w") as hash_file:
+        #         with open(report_file_path, "w", encoding='utf-8') as hash_file:
         #             hash_file.write(
         #                 "Gemino Hash File\nAlgorithm: {}\nGenerated on: {}\n----------------\n\n".format(
         #                     hash_algo, end_date
@@ -251,7 +251,7 @@ class CopyThread(QThread):
         for dst in destinations:
             try:
                 report_file_path = path.join(dst, f'{base_path}_copy_report.txt')
-                with open(report_file_path, "a") as report_file:
+                with open(report_file_path, "a", encoding='utf-8') as report_file:
                     report_file.write(f"End Time: {end_time.isoformat()}\n")
                     report_file.write(f"Duration: {end_time - start_time}\n")
                     report_file.write("\n")
@@ -266,7 +266,7 @@ class CopyThread(QThread):
             for hash_algo in hashes:
                 hash_file_path = path.join(dst, f'{base_path}.{hash_algo}')
                 try:
-                    with open(hash_file_path, "w") as hash_file:
+                    with open(hash_file_path, "w", encoding='utf-8') as hash_file:
                         for file, file_hashes in files_hashes.items():
                             hash_file.write(f"{file_hashes[hash_algo]} {file}\n")
                 except FileNotFoundError:
@@ -278,7 +278,7 @@ class CopyThread(QThread):
         #     for hash_algo in hashes:
         #         report_file_path = path.join(dst_folder, '%s_gemino.txt' % hash_algo)
         #         try:
-        #             with open(report_file_path, "a") as hash_file:
+        #             with open(report_file_path, "a", encoding='utf-8') as hash_file:
         #                 hash_file.write(
         #                     "Gemino Source Hash Report\nAlgorithm: {}\nGenerated on: {}\n----------------\n\n".format(
         #                         hash_algo, end_time.isoformat()
@@ -300,7 +300,7 @@ class CopyThread(QThread):
             hash_error = 0
             try:
                 report_file_path = path.join(dst, f'{base_path}_copy_report.txt')
-                with open(report_file_path, "a") as report_file:
+                with open(report_file_path, "a", encoding='utf-8') as report_file:
                     report_file.write("\n")
                     report_file.write(f"################## Verification Report ######################\n")
                     for filename, file_hashes in files_hashes.items():
@@ -594,7 +594,7 @@ class ProgressWindow(QtWidgets.QDialog):
         for dst in self.dst:
             try:
                 report_file_path = path.join(dst, f'{base_path}_copy_report.txt')
-                with open(report_file_path, "a") as report_file:
+                with open(report_file_path, "a", encoding='utf-8') as report_file:
                     report_file.write(f"\nUser interrupted copy process at: {datetime.now().isoformat()}")
             except FileNotFoundError as error:
                 print(f"Error writing to report: {error}")
