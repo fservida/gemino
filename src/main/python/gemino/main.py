@@ -54,7 +54,6 @@ class CopyBuffer(Thread):
 
 
 class CopyThread(QThread):
-
     copy_progress = Signal(object)
 
     def __init__(self, src: str, destinations: list, hashes: list, total_files: int, total_bytes: int, metadata: list):
@@ -356,6 +355,7 @@ class CopyThread(QThread):
 from PySide2 import QtWidgets, QtCore, QtGui
 import webbrowser
 
+
 # from .threads import SizeCalcThread, CopyThread
 
 
@@ -522,6 +522,8 @@ class ProgressWindow(QtWidgets.QDialog):
         self.hash_algos = hash_algos
         self.total_files = total_files
 
+        self.base_path = path.basename(path.normpath(src)) if path.basename(path.normpath(src)) != '' else '[root]'
+
         self.processed_files = 0
         self.status = ProgressWindow.STATUSES[0]
         self.update_ui()
@@ -575,7 +577,7 @@ class ProgressWindow(QtWidgets.QDialog):
         self.thread.terminate()
         self.status = self.STATUSES[3]  # cancel
 
-        base_path = path.basename(path.normpath(self.src))
+        base_path = self.base_path
         for dst in self.dst:
             try:
                 report_file_path = path.join(dst, f'{base_path}_copy_report.txt')
@@ -787,8 +789,10 @@ class MainWidget(QtWidgets.QWidget):
             error_box("No Writable/Valid Drive Selected!")
 
     def check_existing(self, volumes):
+        base_path = path.basename(path.normpath(self.source_dir)) if path.basename(
+            path.normpath(self.source_dir)) != '' else '[root]'
         for i in range(len(volumes)):
-            dst_path = os.path.join(volumes[i], os.path.basename(self.source_dir))
+            dst_path = os.path.join(volumes[i], base_path)
             if os.path.exists(dst_path) and os.listdir(dst_path):
                 # Folder not empty alert user
                 print(f"{dst_path} not empty!")
