@@ -13,7 +13,7 @@ import errno
 import shutil
 import hashlib
 from threading import Thread, current_thread
-from datetime import datetime
+from datetime import datetime, timedelta
 from copy import copy
 from logging import Logger
 
@@ -97,7 +97,7 @@ class CopyThread(QThread):
                 report_file_path = path.join(dst, f'{base_path}_copy_report.txt')
                 with open(report_file_path, "w", encoding='utf-8') as report_file:
                     report_file.write(f"# Gemino Copy Report\n")
-                    report_file.write(f"# Gemino v2.1.2\n")
+                    report_file.write(f"# Gemino v2.2.0\n")
                     report_file.write(f"#####################################################\n\n")
 
                     report_file.write(f"################## Case Metadata ####################\n")
@@ -278,6 +278,7 @@ class CopyThread(QThread):
         print("Verifying Hashes...")
         progress = {dst: {'status': 'idle', 'processed_bytes': 0, 'processed_files': filecount, 'current_file': ''} for
                     dst in destinations}
+        self.copy_progress.emit((1, progress))
         for dst in destinations:
             hashed_size = 0
             filecount = 0
@@ -380,8 +381,12 @@ class VolumeProgress(QtWidgets.QWidget):
         self.__processed_files = 0
         self.__total_files = total_files
         self.__processed_bytes = 0
+        self.__previous_bytes_granular = 0  # Processed bytes updated with minimum 1 second granularity
         self.__total_bytes = total_bytes
         self.__volume_name = volume_name
+        self.__previous_time = datetime.now()
+        self.__speed = 0
+        self.__eta = timedelta(seconds=0)
 
         # UI
         self.__setup_ui()
@@ -395,6 +400,10 @@ class VolumeProgress(QtWidgets.QWidget):
         self.__current_file_label = QtWidgets.QLabel()
         self.__size_progress_label = QtWidgets.QLabel()
         self.__size_progress_label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
+        self.__speed_label = QtWidgets.QLabel()
+        self.__speed_label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
+        self.__eta_label = QtWidgets.QLabel()
+        self.__eta_label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
         self.__file_progress_label = QtWidgets.QLabel()
         self.__file_progress_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         self.__open_folder_button = QtWidgets.QPushButton('Open Destination')
@@ -403,16 +412,20 @@ class VolumeProgress(QtWidgets.QWidget):
         self.__layout_container = QtWidgets.QVBoxLayout()
         self.__layout_first_row = QtWidgets.QHBoxLayout()
         self.__layout_third_row = QtWidgets.QHBoxLayout()
+        self.__layout_fourth_row = QtWidgets.QHBoxLayout()
         self.__layout_first_row.addWidget(self.__volume_label)
         self.__layout_first_row.addWidget(self.__current_status_label)
         self.__layout_first_row.addWidget(self.__open_folder_button)
         self.__layout_third_row.addWidget(self.__current_file_label)
-        self.__layout_third_row.addWidget(self.__size_progress_label)
-        self.__layout_third_row.addWidget(self.__file_progress_label)
+        self.__layout_fourth_row.addWidget(self.__size_progress_label)
+        self.__layout_fourth_row.addWidget(self.__speed_label)
+        self.__layout_fourth_row.addWidget(self.__eta_label)
+        self.__layout_fourth_row.addWidget(self.__file_progress_label)
 
         self.__layout_container.addLayout(self.__layout_first_row)
         self.__layout_container.addWidget(self.__progress_bar)  # "Second Row" Dedicated to Progress Bar
         self.__layout_container.addLayout(self.__layout_third_row)
+        self.__layout_container.addLayout(self.__layout_fourth_row)
 
         self.setLayout(self.__layout_container)
 
@@ -423,6 +436,9 @@ class VolumeProgress(QtWidgets.QWidget):
         self.__size_progress_label.setText(
             "{:.2f} / {:.2f} GB".format(self.__processed_bytes / 10 ** 9, self.__total_bytes / 10 ** 9))
         self.__file_progress_label.setText("{} / {} files".format(self.__processed_files, self.__total_files))
+        self.__speed_label.setText(self.speed)
+        self.__eta_label.setText(str(self.__eta).split('.')[0])  # split ETA string on microsecond separator if present
+
         current_percent = self.__processed_bytes / self.__total_bytes * 100
         self.__progress_bar.setValue(current_percent)
 
@@ -432,8 +448,57 @@ class VolumeProgress(QtWidgets.QWidget):
 
     @processed_bytes.setter
     def processed_bytes(self, processed_bytes):
-        self.__processed_bytes = int(processed_bytes)
+        processed_bytes = int(processed_bytes)
+        if not processed_bytes or processed_bytes < self.__processed_bytes:
+            # print("Started Copy or Verification")
+            self.__previous_bytes_granular = processed_bytes
+        self.__processed_bytes = processed_bytes
+
+
+        # Calculate time elapsed since last update, set previous time to current update time
+        current_time = datetime.now()
+        delta_time = current_time - self.__previous_time
+        if delta_time.total_seconds() >= 1:
+            self.__previous_time = current_time
+
+            # Calculate bytes written since last update
+            delta_bytes = self.__processed_bytes - self.__previous_bytes_granular
+            self.__previous_bytes_granular = self.__processed_bytes
+
+            # Use previously calculated deltas to establish speed and ETA
+            elapsed_seconds = delta_time.total_seconds() + delta_time.microseconds / 10 ** 6
+            try:
+                self.__speed = delta_bytes / elapsed_seconds  # In bytes
+                remaining_bytes = self.__total_bytes - self.processed_bytes
+                remaining_seconds = remaining_bytes / self.__speed
+                self.__eta = timedelta(seconds=remaining_seconds)
+                # print(self.__speed, delta_bytes, elapsed_seconds, self.__eta)
+            except ZeroDivisionError:
+                # elapsed_seconds == 0
+                # print(
+                #     f"Zero division error!\n"
+                #     f"Seconds: {elapsed_seconds} "
+                #     f"- Processed Bytes: {processed_bytes} "
+                #     f"- Previous Bytes: {self.__previous_bytes_granular} "
+                #     f"- Delta Bytes: {delta_bytes} "
+                #     f"- Speed (Bytes/s): {self.__speed}"
+                # )
+                pass
+
+        # Finally Update UI
         self.__update_ui()
+
+    @property
+    def speed(self):
+        bytes_per_seconds = self.__speed
+        if bytes_per_seconds >= 10 ** 9:
+            return f"{bytes_per_seconds / 10 ** 9:.2f} GB/s"
+        elif bytes_per_seconds >= 10 ** 6:
+            return f"{bytes_per_seconds / 10 ** 6:.2f} MB/s"
+        elif bytes_per_seconds >= 10 ** 3:
+            return f"{bytes_per_seconds / 10 ** 3:.2f} KB/s"
+        else:
+            return f"{float(bytes_per_seconds):.2f} Bytes/s"
 
     @property
     def processed_files(self):
