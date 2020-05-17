@@ -879,7 +879,12 @@ class MainWidget(QtWidgets.QWidget):
         }
         for hash_algo in hash_algos:
             stored_setting = self.settings.value(hash_algo)
-            hash_algos[hash_algo] = bool(stored_setting) if stored_setting is not None else True
+            if isinstance(stored_setting, str):
+                # Windows returns a string
+                hash_algos[hash_algo] = (stored_setting == 'true') if stored_setting is not None else True
+            else:
+                # macOS, returns a Boolean
+                hash_algos[hash_algo] = bool(stored_setting) if stored_setting is not None else True
         self.hash_label = QtWidgets.QLabel("Hashing Algorithms: ")
         self.md5_checkbox = QtWidgets.QCheckBox("md5", self)
         self.md5_checkbox.setChecked(hash_algos["md5"])
