@@ -132,7 +132,12 @@ class CopyThread(QThread):
                     # Create Paths in destination directory
                     dst_path = path.join(dst, dst_folder)
                     os.makedirs(dst_path, exist_ok=True)
-                    shutil.copystat(dirpath, dst_path)
+                    try:
+                        shutil.copystat(dirpath, dst_path)
+                    except OSError:
+                        # shutil failed to copy directory metadata. Not a critical error, log and continue.
+                        print(f"Warning - Unable to copy directory attributes to destination folder ({dst_path}), timestamps will not reflect the source.")
+                        # TODO - Insert code to log (and display) this warning, eventually a UI for the user to confirm could be added.
 
                 except FileNotFoundError as error:
                     # If a device is not mounted anymore we will get a FileNotFound Error
