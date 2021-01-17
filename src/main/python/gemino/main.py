@@ -18,6 +18,15 @@ from copy import copy
 from logging import Logger
 
 
+from pyaff4 import container, version
+from pyaff4 import lexicon, logical, escaping
+from pyaff4 import rdfvalue, utils
+from pyaff4 import hashes as aff4_hashes
+from pyaff4 import block_hasher, data_store, linear_hasher, zip
+from pyaff4 import aff4_map
+import sys, os, errno, shutil, uuid
+
+
 class SizeCalcThread(QThread):
     data_ready = Signal(object)
 
@@ -56,7 +65,7 @@ class CopyBuffer(Thread):
 class CopyThread(QThread):
     copy_progress = Signal(object)
 
-    def __init__(self, src: str, destinations: list, hashes: list, total_files: int, total_bytes: int, metadata: list):
+    def __init__(self, src: str, destinations: list, hashes: list, total_files: int, total_bytes: int, metadata: list, aff4: bool, aff4_filename: str):
         super().__init__()
         self.src = src
         self.destinations = destinations
@@ -65,11 +74,20 @@ class CopyThread(QThread):
         self.file_hashes = {}
         self.total_bytes = total_bytes
         self.metadata = metadata
-        self.base_path = path.basename(path.normpath(src)) if path.basename(path.normpath(src)) != '' else '[root]'
+        self.aff4 = bool(aff4)
+        self.aff4_filename = str(aff4_filename)
+        if self.aff4:
+            self.base_path = self.aff4_filename
+        else:
+            self.base_path = path.basename(path.normpath(src)) if path.basename(path.normpath(src)) != '' else '[root]'
+        print(self.aff4, self.aff4_filename, self.destinations)
 
     def run(self):
         try:
-            self.copy(self.src, self.destinations, self.hashes)
+            if self.aff4:
+                self.copy_aff4(self.src, self.destinations, self.hashes)
+            else:
+                self.copy_folder(self.src, self.destinations, self.hashes)
         except Exception as error:
             for dst in self.destinations:
                 try:
@@ -80,9 +98,10 @@ class CopyThread(QThread):
                 except FileNotFoundError as error:
                     print(f"Error writing to report: {error}")
                     pass
+            raise
             self.copy_progress.emit((-1, error))
 
-    def copy(self, src: str, destinations: list, hashes: list):
+    def copy_folder(self, src: str, destinations: list, hashes: list):
         print("Copying Files...")
 
         base_path = self.base_path
@@ -91,34 +110,7 @@ class CopyThread(QThread):
 
         files_hashes = {}  # {filepath: {hash_name:hash_value, ...}, ...}
 
-        start_time = datetime.now()
-        for dst in destinations:
-            try:
-                report_file_path = path.join(dst, f'{base_path}_copy_report.txt')
-                with open(report_file_path, "w", encoding='utf-8') as report_file:
-                    report_file.write(f"# Gemino Copy Report\n")
-                    report_file.write(f"# Gemino v2.2.0\n")
-                    report_file.write(f"#####################################################\n\n")
-
-                    report_file.write(f"################## Case Metadata ####################\n")
-                    report_file.write(f"Operator: {self.metadata['operator']}\n")
-                    report_file.write(f"Intake: {self.metadata['intake']}\n")
-                    report_file.write(f"Notes:\n{self.metadata['notes']}\n")
-                    report_file.write(f"\n")
-
-                    report_file.write(f"################## Copy Information #################\n")
-                    report_file.write(f"Source: {src}\n")
-                    report_file.write(f"Destination: {path.join(dst, base_path)}\n")
-                    report_file.write(f"Total Files: {self.total_files}\n")
-                    report_file.write(f"Size: {self.total_bytes} Bytes (~ {self.total_bytes / 10 ** 9} GB)\n")
-                    report_file.write(f"Hashes: {' - '.join(self.hashes)}\n")
-                    report_file.write(f"\n")
-
-                    report_file.write(f"################## Copy Report ######################\n")
-                    report_file.write(f"Start Time: {start_time.isoformat()}\n")
-            except FileNotFoundError as error:
-                print(f"Error writing to folder: {error}")
-                raise
+        start_time = self.initialize_log_files(destinations, base_path, src)
 
         filecount = 0
         copied_size = 0
@@ -127,9 +119,9 @@ class CopyThread(QThread):
             rel_path = path.relpath(dirpath, src)
             dst_folder = path.normpath(path.join(base_path, rel_path))
 
+            # Create Paths in destination directory
             for dst in destinations:
                 try:
-                    # Create Paths in destination directory
                     dst_path = path.join(dst, dst_folder)
                     os.makedirs(dst_path, exist_ok=True)
                     try:
@@ -146,6 +138,7 @@ class CopyThread(QThread):
                     destinations.pop(destinations.index(dst))
                     raise
 
+            # Copy Files
             for filename in filenames:
 
                 if rel_path == "." and 'gemino.txt' in filename:
@@ -353,7 +346,246 @@ class CopyThread(QThread):
         # Done
         print("Done!")
         self.copy_progress.emit((2, {}))
+    def copy_aff4(self, src: str, destinations: list, hashes: list):
 
+        assert len(destinations) == 1
+        destination = destinations[0]
+
+        print("Copying Files...")
+
+        base_path = self.base_path
+
+        buffer_size = 64 * 1024 * 1024  # Read 64M at a time
+
+        files_hashes = {}  # {filepath: {hash_name:hash_value, ...}, ...}
+
+        start_time = self.initialize_log_files(destinations, base_path, src)
+
+        # Initialize AFF4 Resolver and Container
+        with data_store.MemoryDataStore() as resolver:
+            container_urn = rdfvalue.URN.FromFileName(path.join(destination, self.base_path))
+            with container.Container.createURN(resolver, container_urn, encryption=False) as volume:
+                hashers_algos = []
+                if "md5" in hashes:
+                    hashers_algos.append(lexicon.HASH_MD5)
+                if "sha1" in hashes:
+                    hashers_algos.append(lexicon.HASH_SHA1)
+                if "sha256" in hashes:
+                    hashers_algos.append(lexicon.HASH_SHA256)
+
+                # Read Files and Folder and add to containers
+                filecount = 0
+                copied_size = 0
+                for dirpath, dirnames, filenames in os.walk(src):
+                    # dst_folder - Join the destination folder (basename_of_source) with the actual relative path
+                    rel_path = path.relpath(dirpath, src)
+                    aff4_tree_path = path.normpath(path.join(path.basename(src), rel_path))
+
+                    # Create Paths in destination directory
+                    # For AFF4 containers
+                    # We want the DST Pathname as the source pathname relative to the source top directory
+                    dst_path = aff4_tree_path
+                    pathname = utils.SmartUnicode(dst_path)
+                    fsmeta = logical.FSMetadata.create(dirpath)  # We need the absolute path to get FS Metadata
+                    if volume.isAFF4Collision(pathname):
+                        image_urn = rdfvalue.URN("aff4://%s" % uuid.uuid4())
+                    else:
+                        image_urn = volume.urn.Append(escaping.arnPathFragment_from_path(pathname), quote=False)
+                    fsmeta.urn = image_urn
+                    fsmeta.store(resolver)
+                    resolver.Set(volume.urn, image_urn, rdfvalue.URN(lexicon.standard11.pathName),
+                                 rdfvalue.XSDString(pathname))
+                    resolver.Add(volume.urn, image_urn, rdfvalue.URN(lexicon.AFF4_TYPE),
+                                 rdfvalue.URN(lexicon.standard11.FolderImage))
+                    resolver.Add(volume.urn, image_urn, rdfvalue.URN(lexicon.AFF4_TYPE),
+                                 rdfvalue.URN(lexicon.standard.Image))
+
+                    # Copy Files
+                    for filename in filenames:
+
+                        filecount += 1
+
+                        self.copy_progress.emit(
+                            (0, {dst: {'status': 'copy', 'processed_bytes': copied_size, 'processed_files': filecount,
+                                       'current_file': filename}
+                                 for dst in
+                                 self.destinations}))
+
+                        src_file_path = path.join(dirpath, filename)
+                        src_file_path_rel = path.join(aff4_tree_path, filename)
+                        pathname = utils.SmartUnicode(src_file_path_rel)  # Destination filepath is relative to top source dir
+                        fsmeta = logical.FSMetadata.create(src_file_path)  # FSMetadata needs absolute path for source info
+                        try:
+                            with open(src_file_path, "rb", buffering=0) as src_file:
+                                file_hashes = {hash_algo: "" for hash_algo in hashes}
+                                hasher = linear_hasher.StreamHasher(src_file, hashers_algos)
+                                urn = volume.writeLogicalStream(pathname, hasher, fsmeta.length)
+                                fsmeta.urn = urn
+                                fsmeta.store(resolver)
+                                for h in hasher.hashes:
+                                    hh = aff4_hashes.newImmutableHash(h.hexdigest(), hasher.hashToType[h])
+                                    resolver.Add(urn, urn, rdfvalue.URN(lexicon.standard.hash), hh)
+                                    file_hashes[h.name] = hh.value
+
+                        except (FileNotFoundError, OSError):
+                            # FileNotFoundError if source disconnected and we try to open it
+                            # OSError if source disconnected and we try to read from it
+                            print("Lost source! (Or permission problem)")
+                            raise
+                        files_hashes[path.normpath(path.join(rel_path, filename))] = file_hashes
+
+                # Write Hash Files
+                end_time = datetime.now()
+        print("Writing Hash Files...")
+        # 2020-03-01 - Disabled writing to source dir by default. Will come back once a checkbox is present.
+        # for hash_algo in hashes:
+        #     try:
+        #         report_file_path = path.join(src, '%s_gemino.txt' % hash_algo)
+        #         with open(report_file_path, "w", encoding='utf-8') as hash_file:
+        #             hash_file.write(
+        #                 "Gemino Hash File\nAlgorithm: {}\nGenerated on: {}\n----------------\n\n".format(
+        #                     hash_algo, end_date
+        #                 )
+        #             )
+        #             for file, file_hashes in files_hashes.items():
+        #                 hash_file.write("{} - {}\n".format(file_hashes[hash_algo], file))
+        #     except FileNotFoundError:
+        #         print("Unable to write hash file in source dir, volume not connected anymore.")
+        #         raise
+        #     except OSError as error:
+        #         if error.errno in (errno.EROFS, errno.EACCES):
+        #             print("Unable to write hash file in source dir, volume is readonly or insufficient permissions.")
+        #         raise
+
+        for dst in destinations:
+            try:
+                report_file_path = path.join(dst, f'{base_path}_copy_report.txt')
+                with open(report_file_path, "a", encoding='utf-8') as report_file:
+                    report_file.write(f"End Time: {end_time.isoformat()}\n")
+                    report_file.write(f"Duration: {end_time - start_time}\n")
+                    report_file.write("\n")
+                    report_file.write(f"################## Source Hashes ######################\n")
+                    for file, file_hashes in files_hashes.items():
+                        hash_values = [file_hashes[hash_algo] for hash_algo in hashes]
+                        report_file.write(f"{' - '.join(hash_values)} - {file}\n")
+            except FileNotFoundError as error:
+                print(f"Error writing to report: {error}")
+                raise
+
+            for hash_algo in hashes:
+                hash_file_path = path.join(dst, f'{base_path}.{hash_algo}')
+                try:
+                    with open(hash_file_path, "w", encoding='utf-8') as hash_file:
+                        for file, file_hashes in files_hashes.items():
+                            hash_file.write(f"{file_hashes[hash_algo]} {file}\n")
+                except FileNotFoundError:
+                    print("Unable to write hash file in destination dir, volume not connected anymore.")
+                    raise
+
+        # Verify Hashes
+        print("Verifying Hashes...")
+        progress = {dst: {'status': 'idle', 'processed_bytes': 0, 'processed_files': filecount, 'current_file': ''} for
+                    dst in destinations}
+        self.copy_progress.emit((1, progress))
+        for dst in destinations:
+            break
+            hashed_size = 0
+            filecount = 0
+            hash_error = 0
+            try:
+                report_file_path = path.join(dst, f'{base_path}_copy_report.txt')
+                with open(report_file_path, "a", encoding='utf-8') as report_file:
+                    report_file.write("\n")
+                    report_file.write(f"################## Verification Report ######################\n")
+                    for filename, file_hashes in files_hashes.items():
+                        # Update File Progress
+                        filecount += 1
+                        progress[dst] = {'status': 'hashing', 'processed_bytes': hashed_size,
+                                         'processed_files': filecount,
+                                         'current_file': ''}
+                        self.copy_progress.emit((1, progress))
+                        filepath = path.normpath(path.join(dst, base_path, filename))
+                        this_file_error = False
+                        with open(filepath, "rb") as file:
+                            dst_file_hashes = {hash_algo: hashlib.__getattribute__(hash_algo)() for hash_algo in hashes
+                                               if
+                                               hasattr(hashlib, hash_algo)}
+
+                            data = file.read(buffer_size)
+                            while data:
+                                for hash_algo, hash_buffer in dst_file_hashes.items():
+                                    # Not threaded because CPU bound
+                                    # Improving performance would need multiprocesses, we'll deal with it another time
+                                    hash_buffer.update(data)
+                                hashed_size += len(data)
+                                # Update Byte Progress
+                                progress[dst] = {'status': 'hashing', 'processed_bytes': hashed_size,
+                                                 'processed_files': filecount, 'current_file': filename}
+                                self.copy_progress.emit((1, progress))
+
+                                data = file.read(buffer_size)
+
+                            for hash_algo, hash_buffer in dst_file_hashes.items():
+                                dst_file_hashes[hash_algo] = hash_buffer.hexdigest()
+
+                            for hash_algo, file_hash in file_hashes.items():
+                                if dst_file_hashes[hash_algo] != file_hash:
+                                    print("COPY ERROR - %s HASH for %s file DIFFERS!" % (hash_algo, filename))
+                                    progress[dst] = {'status': 'error_hash', 'processed_bytes': hashed_size,
+                                                     'processed_files': filecount, 'current_file': filename}
+                                    self.copy_progress.emit((1, progress))
+                                    hash_error += 1
+                        if this_file_error:
+                            report_file.write(f"Verification failed for file: {filename}\n")
+
+                    if hash_error:
+                        report_file.write(f"Verification failed for {hash_error} files.\n")
+                        report_file.write(f"Verification successful for {filecount} files\n")
+
+                    if not hash_error:
+                        # Signal the end with no errors of the hash verification for the current volume
+                        progress[dst] = {'status': 'done', 'processed_bytes': hashed_size,
+                                         'processed_files': filecount, 'current_file': ''}
+                        report_file.write(f"Verification successful for {filecount} files\n")
+                        self.copy_progress.emit((1, progress))
+
+            except FileNotFoundError as error:
+                print(f"Error writing to report: {error}")
+                raise
+
+        # Done
+        print("Done!")
+        self.copy_progress.emit((2, {}))
+    def initialize_log_files(self, destinations, base_path, src):
+        start_time = datetime.now()
+        for dst in destinations:
+            try:
+                report_file_path = path.join(dst, f'{base_path}_copy_report.txt')
+                with open(report_file_path, "w", encoding='utf-8') as report_file:
+                    report_file.write(f"# Gemino Copy Report\n")
+                    report_file.write(f"# Gemino v2.3.0a\n")
+                    report_file.write(f"#####################################################\n\n")
+
+                    report_file.write(f"################## Case Metadata ####################\n")
+                    report_file.write(f"Operator: {self.metadata['operator']}\n")
+                    report_file.write(f"Intake: {self.metadata['intake']}\n")
+                    report_file.write(f"Notes:\n{self.metadata['notes']}\n")
+                    report_file.write(f"\n")
+
+                    report_file.write(f"################## Copy Information #################\n")
+                    report_file.write(f"Source: {src}\n")
+                    report_file.write(f"Destination: {path.join(dst, base_path)}\n")
+                    report_file.write(f"Total Files: {self.total_files}\n")
+                    report_file.write(f"Size: {self.total_bytes} Bytes (~ {self.total_bytes / 10 ** 9} GB)\n")
+                    report_file.write(f"Hashes: {' - '.join(self.hashes)}\n")
+                    report_file.write(f"\n")
+
+                    report_file.write(f"################## Copy Report ######################\n")
+                    report_file.write(f"Start Time: {start_time.isoformat()}\n")
+            except FileNotFoundError as error:
+                print(f"Error writing to folder: {error}")
+                raise
+        return start_time
 
 ################ widgets.py ##########################
 # (Go figure why fbs isn't packing the app correctly #
@@ -377,7 +609,7 @@ class VolumeProgress(QtWidgets.QWidget):
         'error_io': 'Lost Communication to Device'
     }
 
-    def __init__(self, volume_name, total_bytes, total_files):
+    def __init__(self, volume_name, total_bytes, total_files, aff4_filename: str = ""):
         super().__init__()
 
         # Init Data
@@ -393,6 +625,7 @@ class VolumeProgress(QtWidgets.QWidget):
         self.__previous_time = datetime.now()
         self.__speed = 0
         self.__eta = timedelta(seconds=0)
+        self.__aff4_filename = aff4_filename
 
         # UI
         self.__setup_ui()
@@ -436,7 +669,10 @@ class VolumeProgress(QtWidgets.QWidget):
         self.setLayout(self.__layout_container)
 
     def __update_ui(self):
-        self.__volume_label.setText(self.__volume_name)
+        if self.__aff4_filename:
+            self.__volume_label.setText(os.path.join(self.__volume_name, self.__aff4_filename))
+        else:
+            self.__volume_label.setText(self.__volume_name)
         self.__current_status_label.setText(VolumeProgress.__STATUSES[self.__status])
         self.__current_file_label.setText(self.__current_file)
         self.__size_progress_label.setText(
@@ -555,7 +791,7 @@ class ProgressWindow(QtWidgets.QDialog):
         'cancel': 'File copy has been interrupted',
     }
 
-    def __init__(self, src: str, dst: list, hash_algos: list, total_files: int, total_bytes: int, metadata: list):
+    def __init__(self, src: str, dst: list, hash_algos: list, total_files: int, total_bytes: int, metadata: list, aff4: bool, aff4_filename: str):
         super().__init__()
 
         self.setWindowTitle("Copy Progress")
@@ -570,7 +806,10 @@ class ProgressWindow(QtWidgets.QDialog):
 
         self.volume_progresses = []
         for destination in dst:
-            self.volume_progresses.append(VolumeProgress(destination, total_bytes, total_files))
+            if aff4:
+                self.volume_progresses.append(VolumeProgress(destination, total_bytes, total_files, aff4_filename))
+            else:
+                self.volume_progresses.append(VolumeProgress(destination, total_bytes, total_files))
 
         self.layout = QtWidgets.QVBoxLayout()
         self.layout2 = QtWidgets.QHBoxLayout()
@@ -591,6 +830,8 @@ class ProgressWindow(QtWidgets.QDialog):
         self.dst = dst
         self.hash_algos = hash_algos
         self.total_files = total_files
+        self.aff4 = aff4
+        self.aff4_filename = aff4_filename
 
         self.base_path = path.basename(path.normpath(src)) if path.basename(path.normpath(src)) != '' else '[root]'
 
@@ -599,7 +840,7 @@ class ProgressWindow(QtWidgets.QDialog):
         self.update_ui()
 
         # Start copying files
-        self.thread = CopyThread(src, dst, hash_algos, total_files, total_bytes, metadata)
+        self.thread = CopyThread(src, dst, hash_algos, total_files, total_bytes, metadata, aff4, aff4_filename)
         self.thread.copy_progress.connect(self.update_progress, QtCore.Qt.QueuedConnection)
         self.thread.start()
 
@@ -731,7 +972,7 @@ class MainWidget(QtWidgets.QWidget):
         self.notes_text_field = QtWidgets.QTextEdit()
         self.init_hashing_widgets()
         # AFF4 Support
-        self.aff4_checkbox = QtWidgets.QCheckBox("Write to AFF4 Container", self)
+        self.aff4_checkbox = QtWidgets.QCheckBox("Write to AFF4 Container - ALPHA SUPPORT!", self)
         self.aff4_checkbox.stateChanged.connect(self.toggle_aff4_filename)
         self.aff4_filename_label = QtWidgets.QLabel("AFF4 Container Filename (w/o extension):")
         self.aff4_filename = QtWidgets.QLineEdit()
@@ -862,12 +1103,25 @@ class MainWidget(QtWidgets.QWidget):
             if dst_folder_storage_info.isReady() and dst_folder_writable and dst_folder_storage_info.bytesFree() > self.dir_size:
                 dst_volumes.append(self.dst_folder)
 
+        if self.aff4_checkbox.isChecked() and len(dst_volumes) > 1:
+            #error_box("Writing to Multiple Destinations When Using AFF4 Creates Container Files With Different Hashes.\n\n"
+            #          "You will have to verify the content of the AFF4 containers when comparing containers and not the container itself.\n")
+            error_box("Only One Destination Supported When Using AFF4 Containers")
+            return
+
+        if self.aff4_checkbox.isChecked():
+            error_box("Warning - AFF4 Support is Alpha Level\n\n"
+                      "Might Not Copy Correctly / Create Corrupted Containers\n"
+                      "Verification Not Yet Implemented\n"
+                      "Use with caution and report all bugs.")
+
         dst_volumes = self.check_existing(dst_volumes)
+        dst_volumes = self.normalize_paths(dst_volumes)
 
         if dst_volumes:
             # At least one drive selected and writable
             progress = ProgressWindow(self.source_dir, dst_volumes, hash_algos, self.files_count, self.dir_size,
-                                      self.metadata)
+                                      self.metadata, self.aff4_checkbox.isChecked(), self.aff_filename)
             progress.setWindowFlags(QtCore.Qt.CustomizeWindowHint)
             progress.setModal(True)
             progress.exec_()
@@ -875,9 +1129,9 @@ class MainWidget(QtWidgets.QWidget):
         else:
             error_box("No Writable/Valid Drive Selected!")
 
+    # TODO - If AFF4 -> Check if same filename exists and not if folder is empty.
     def check_existing(self, volumes):
-        base_path = path.basename(path.normpath(self.source_dir)) if path.basename(
-            path.normpath(self.source_dir)) != '' else '[root]'
+        base_path = self.src_base_path
         for i in range(len(volumes)):
             dst_path = os.path.join(volumes[i], base_path)
             if os.path.exists(dst_path) and os.listdir(dst_path):
@@ -891,6 +1145,34 @@ class MainWidget(QtWidgets.QWidget):
                     print("User chose to skip folder, remove from destinations.")
                     volumes.pop(i)
         return volumes
+
+    @property
+    def src_base_path(self):
+        base_path = path.basename(path.normpath(self.source_dir)) if path.basename(
+            path.normpath(self.source_dir)) != '' else '[root]'
+        return base_path
+
+    def normalize_paths(self, destinations: list):
+        for i in range(len(destinations)):
+            destination = destinations[i]
+            destination = os.path.normpath(destination)
+            destinations[i] = destination
+
+        return destinations
+
+    @property
+    def aff_filename(self):
+        """
+        Append AFF4 Container to specified destinations if AFF4 is enabled
+        :param destinations: list of destination PATHS
+        :return: destinations: list of AFF4 container PATHS
+        """
+        aff4_filename = self.aff4_filename.text()
+        if not aff4_filename:
+            aff4_filename = self.src_base_path
+        aff4_filename += ".aff4"
+
+        return aff4_filename
 
     def init_hashing_widgets(self):
         # Hash Related Widgets
