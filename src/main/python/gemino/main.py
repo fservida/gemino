@@ -136,7 +136,8 @@ class CopyThread(QThread):
                         shutil.copystat(dirpath, dst_path)
                     except OSError:
                         # shutil failed to copy directory metadata. Not a critical error, log and continue.
-                        print(f"Warning - Unable to copy directory attributes to destination folder ({dst_path}), timestamps will not reflect the source.")
+                        print(
+                            f"Warning - Unable to copy directory attributes to destination folder ({dst_path}), timestamps will not reflect the source.")
                         # TODO - Insert code to log (and display) this warning, eventually a UI for the user to confirm could be added.
 
                 except FileNotFoundError as error:
@@ -459,7 +460,6 @@ class VolumeProgress(QtWidgets.QWidget):
             self.__previous_bytes_granular = processed_bytes
         self.__processed_bytes = processed_bytes
 
-
         # Calculate time elapsed since last update, set previous time to current update time
         current_time = datetime.now()
         delta_time = current_time - self.__previous_time
@@ -730,6 +730,12 @@ class MainWidget(QtWidgets.QWidget):
         self.notes_label = QtWidgets.QLabel("Notes:")
         self.notes_text_field = QtWidgets.QTextEdit()
         self.init_hashing_widgets()
+        # AFF4 Support
+        self.aff4_checkbox = QtWidgets.QCheckBox("Write to AFF4 Container", self)
+        self.aff4_checkbox.stateChanged.connect(self.toggle_aff4_filename)
+        self.aff4_filename_label = QtWidgets.QLabel("AFF4 Container Filename (w/o extension):")
+        self.aff4_filename = QtWidgets.QLineEdit()
+        self.toggle_aff4_filename()
 
         # Layout Management
         self.layout = QtWidgets.QHBoxLayout()
@@ -761,6 +767,17 @@ class MainWidget(QtWidgets.QWidget):
         self.hash_layout.addWidget(self.sha1_checkbox)
         self.hash_layout.addWidget(self.sha256_checkbox)
         self.left_layout.addLayout(self.hash_layout)
+        # AFF4
+        self.aff4_layout = QtWidgets.QVBoxLayout()
+        self.aff4_checkbox_layout = QtWidgets.QHBoxLayout()
+        self.aff4_checkbox_layout.addWidget(self.aff4_checkbox)
+        self.aff4_filename_layout = QtWidgets.QHBoxLayout()
+        self.aff4_filename_layout.addWidget(self.aff4_filename_label)
+        self.aff4_filename_layout.addWidget(self.aff4_filename)
+        self.aff4_layout.addLayout(self.aff4_checkbox_layout)
+        self.aff4_layout.addLayout(self.aff4_filename_layout)
+        self.left_layout.addLayout(self.aff4_layout)
+        # Right Side
         self.right_layout.addWidget(self.destinations_label)
         self.dst_dir_dialog_layout = QtWidgets.QHBoxLayout()
         self.dst_dir_dialog_layout.addWidget(self.dst_dir_dialog_button)
@@ -903,6 +920,9 @@ class MainWidget(QtWidgets.QWidget):
         self.hashing_algos.addButton(self.sha1_checkbox)
         self.hashing_algos.addButton(self.sha256_checkbox)
 
+    def toggle_aff4_filename(self):
+        self.aff4_filename.setDisabled(not self.aff4_checkbox.isChecked())
+
     def open_files(self):
         self.source_dir = self.src_dir_dialog.getExistingDirectory(self, "Choose Directory to Copy")
         self.src_dir_label.setText(self.source_dir if self.source_dir else "No Directory Selected")
@@ -1032,7 +1052,7 @@ class AppContext(ApplicationContext):  # 1. Subclass ApplicationContext
         version = self.build_settings['version']
         window = MainWindow(version)
         window.setWindowTitle("gemino v" + version)
-        window.resize(650, 600)
+        window.resize(800, 600)
         window.show()
         return self.app.exec_()  # 3. End run() with this line
 
