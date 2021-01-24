@@ -966,7 +966,7 @@ class MainWidget(QtWidgets.QWidget):
         self.report_hbar.setFrameShape(QtWidgets.QFrame.HLine)
         self.operator_name_label = QtWidgets.QLabel("Operator:")
         self.operator_name_text_field = QtWidgets.QLineEdit()
-        self.intake_number_label = QtWidgets.QLabel("Inake:")
+        self.intake_number_label = QtWidgets.QLabel("Intake:")
         self.intake_number_text_field = QtWidgets.QLineEdit()
         self.notes_label = QtWidgets.QLabel("Notes:")
         self.notes_text_field = QtWidgets.QTextEdit()
