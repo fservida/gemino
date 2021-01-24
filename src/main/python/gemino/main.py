@@ -62,6 +62,40 @@ class CopyBuffer(Thread):
         # print("Thread {} - Finished copy to {}".format(current_thread(), self.file_handler.name))
 
 
+class LinearVerificationListener(object):
+    def __init__(self, volume):
+        self.volume = volume
+        self.failed = {}
+
+    def onValidHash(self, typ, hash, imageStreamURI):
+        pass
+
+    def onInvalidHash(self, typ, hasha, hashb, streamURI):
+        file = streamURI
+        data = (typ, hasha, hashb, trimVolume(self.volume, streamURI))
+        print("\t\t%s Hash failure stored = %s calculated = %s, %s)" % data)
+        if file not in self.failed:
+            self.failed[file] = [data]
+        else:
+            self.failed[file].append(data)
+
+
+def trimVolume(volume, image):
+    """
+    Shamelessly taken from aff4.py from aff4/pyaff4
+    :param volume: volume.urn
+    :param image: image.urn
+    :return: only file path, without aff://...// part
+    """
+    volstring = utils.SmartUnicode(volume)
+    imagestring = utils.SmartUnicode(image)
+    if imagestring.startswith(volstring):
+        imagestring = imagestring[len(volstring):]
+    if imagestring.startswith("//"):
+        imagestring = imagestring[2:]
+    return imagestring
+
+
 class CopyThread(QThread):
     copy_progress = Signal(object)
 
@@ -362,8 +396,9 @@ class CopyThread(QThread):
         start_time = self.initialize_log_files(destinations, base_path, src)
 
         # Initialize AFF4 Resolver and Container
+        container_path = path.join(destination, self.base_path)
         with data_store.MemoryDataStore() as resolver:
-            container_urn = rdfvalue.URN.FromFileName(path.join(destination, self.base_path))
+            container_urn = rdfvalue.URN.FromFileName(container_path)
             with container.Container.createURN(resolver, container_urn, encryption=False) as volume:
                 hashers_algos = []
                 if "md5" in hashes:
@@ -416,6 +451,7 @@ class CopyThread(QThread):
                         pathname = utils.SmartUnicode(src_file_path_rel)  # Destination filepath is relative to top source dir
                         fsmeta = logical.FSMetadata.create(src_file_path)  # FSMetadata needs absolute path for source info
                         try:
+                            filesize = path.getsize(src_file_path)  # Needed until I find a way to get signaled on AFF4's copied size per file.
                             with open(src_file_path, "rb", buffering=0) as src_file:
                                 file_hashes = {hash_algo: "" for hash_algo in hashes}
                                 hasher = linear_hasher.StreamHasher(src_file, hashers_algos)
@@ -426,6 +462,7 @@ class CopyThread(QThread):
                                     hh = aff4_hashes.newImmutableHash(h.hexdigest(), hasher.hashToType[h])
                                     resolver.Add(urn, urn, rdfvalue.URN(lexicon.standard.hash), hh)
                                     file_hashes[h.name] = hh.value
+                            copied_size += filesize
 
                         except (FileNotFoundError, OSError):
                             # FileNotFoundError if source disconnected and we try to open it
@@ -488,66 +525,50 @@ class CopyThread(QThread):
                     dst in destinations}
         self.copy_progress.emit((1, progress))
         for dst in destinations:
-            break
             hashed_size = 0
             filecount = 0
-            hash_error = 0
             try:
                 report_file_path = path.join(dst, f'{base_path}_copy_report.txt')
                 with open(report_file_path, "a", encoding='utf-8') as report_file:
                     report_file.write("\n")
                     report_file.write(f"################## Verification Report ######################\n")
-                    for filename, file_hashes in files_hashes.items():
-                        # Update File Progress
-                        filecount += 1
-                        progress[dst] = {'status': 'hashing', 'processed_bytes': hashed_size,
-                                         'processed_files': filecount,
-                                         'current_file': ''}
-                        self.copy_progress.emit((1, progress))
-                        filepath = path.normpath(path.join(dst, base_path, filename))
-                        this_file_error = False
-                        with open(filepath, "rb") as file:
-                            dst_file_hashes = {hash_algo: hashlib.__getattribute__(hash_algo)() for hash_algo in hashes
-                                               if
-                                               hasattr(hashlib, hash_algo)}
+                    with container.Container.openURNtoContainer(rdfvalue.URN.FromFileName(container_path)) as volume:
+                        resolver = volume.resolver
+                        verification_listener = LinearVerificationListener(volume.urn)
+                        hasher = linear_hasher.LinearHasher2(resolver, verification_listener)
 
-                            data = file.read(buffer_size)
-                            while data:
-                                for hash_algo, hash_buffer in dst_file_hashes.items():
-                                    # Not threaded because CPU bound
-                                    # Improving performance would need multiprocesses, we'll deal with it another time
-                                    hash_buffer.update(data)
-                                hashed_size += len(data)
-                                # Update Byte Progress
-                                progress[dst] = {'status': 'hashing', 'processed_bytes': hashed_size,
-                                                 'processed_files': filecount, 'current_file': filename}
-                                self.copy_progress.emit((1, progress))
+                        for image in volume.images():
+                            # Each image is a file in the container.
+                            # Update Byte Progress
+                            filecount += 1
+                            filesize = int(image.resolver.store.get(image.urn).get(lexicon.AFF4_STREAM_SIZE))
+                            progress[dst] = {'status': 'hashing', 'processed_bytes': hashed_size,
+                                             'processed_files': filecount,
+                                             'current_file': trimVolume(volume.urn, image.urn)}
+                            self.copy_progress.emit((1, progress))
 
-                                data = file.read(buffer_size)
+                            #print("\t%s <%s>" % (image.name(), trimVolume(volume.urn, image.urn)))
+                            hasher.hash(image)
+                            hashed_size += filesize
 
-                            for hash_algo, hash_buffer in dst_file_hashes.items():
-                                dst_file_hashes[hash_algo] = hash_buffer.hexdigest()
+                        if verification_listener.failed:
+                            failed_files = len(verification_listener.failed)
+                            progress[dst] = {'status': 'error_hash', 'processed_bytes': hashed_size,
+                                             'processed_files': filecount, 'current_file': ''}
+                            for file in verification_listener.failed:
+                                report_file.write(f"Verification failed for file: {trimVolume(volume.urn, file)}\n")
+                                for hash_failed in verification_listener.failed[file]:
+                                    report_file.write(f"\t{hash_failed[0]} Hash Differs - Stored: {hash_failed[1]} - Calculated {hash_failed[2]}\n")
+                            report_file.write(f"Verification failed for {failed_files} files.\n")
+                            report_file.write(f"Verification successful for {filecount-failed_files} files\n")
+                            self.copy_progress.emit((1, progress))
 
-                            for hash_algo, file_hash in file_hashes.items():
-                                if dst_file_hashes[hash_algo] != file_hash:
-                                    print("COPY ERROR - %s HASH for %s file DIFFERS!" % (hash_algo, filename))
-                                    progress[dst] = {'status': 'error_hash', 'processed_bytes': hashed_size,
-                                                     'processed_files': filecount, 'current_file': filename}
-                                    self.copy_progress.emit((1, progress))
-                                    hash_error += 1
-                        if this_file_error:
-                            report_file.write(f"Verification failed for file: {filename}\n")
-
-                    if hash_error:
-                        report_file.write(f"Verification failed for {hash_error} files.\n")
-                        report_file.write(f"Verification successful for {filecount} files\n")
-
-                    if not hash_error:
-                        # Signal the end with no errors of the hash verification for the current volume
-                        progress[dst] = {'status': 'done', 'processed_bytes': hashed_size,
-                                         'processed_files': filecount, 'current_file': ''}
-                        report_file.write(f"Verification successful for {filecount} files\n")
-                        self.copy_progress.emit((1, progress))
+                        if not verification_listener.failed:
+                            # Signal the end with no errors of the hash verification for the current volume
+                            progress[dst] = {'status': 'done', 'processed_bytes': hashed_size,
+                                             'processed_files': filecount, 'current_file': ''}
+                            report_file.write(f"Verification successful for {filecount} files\n")
+                            self.copy_progress.emit((1, progress))
 
             except FileNotFoundError as error:
                 print(f"Error writing to report: {error}")
@@ -556,6 +577,7 @@ class CopyThread(QThread):
         # Done
         print("Done!")
         self.copy_progress.emit((2, {}))
+
     def initialize_log_files(self, destinations, base_path, src):
         start_time = datetime.now()
         for dst in destinations:
@@ -833,7 +855,10 @@ class ProgressWindow(QtWidgets.QDialog):
         self.aff4 = aff4
         self.aff4_filename = aff4_filename
 
-        self.base_path = path.basename(path.normpath(src)) if path.basename(path.normpath(src)) != '' else '[root]'
+        if self.aff4:
+            self.base_path = self.aff4_filename
+        else:
+            self.base_path = path.basename(path.normpath(src)) if path.basename(path.normpath(src)) != '' else '[root]'
 
         self.processed_files = 0
         self.status = ProgressWindow.STATUSES[0]
