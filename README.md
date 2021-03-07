@@ -2,9 +2,9 @@
 [![Build Status](https://travis-ci.com/fservida/gemino.svg?branch=master)](https://travis-ci.com/fservida/gemino)
 ## gemino file duplicator
 
-Gemino is a file duplicator with advanced capabilities useful for copying forensics datasets.
+Gemino is a file duplicator with advanced capabilities useful for copying forensics datasets and doing logical acquisitions.
 
-This is born as a small project to help in my workflow, it could not suit all needs, and I 100% do not guarantee it to be bug free because, YOLO.
+This was born as a small project to help in my workflow, and has since evolved into a more complete tool with support for log files and forensic containers.
 
 ### Features
 
@@ -51,7 +51,6 @@ Solving this would need implementing multiprocessing, which will be for another 
 
 - Implement multiprocessing for hash verification.
 - Clean up the mess that is this code.
-- Make fbs work with the modularized version of the app.
 
 
 ### Installation & Running
