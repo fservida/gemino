@@ -12,6 +12,7 @@ This is born as a small project to help in my workflow, it could not suit all ne
 - **On the fly hashing**: gemino hashes the source data while copying
 - **"Multicasting"**: gemino uses multiple threads to optimize the writing of the copies to the target drives
 - **Verification**: gemino verifies the written data to the destination devices (well, what forensic tool would it be if that wasn't the case? ＼(￣▽￣)／	 )
+- **AFF4**: Support for creation of AFF4 containers __⚠alpha status⚠__ - Only one destination possible
 
 Using gemino you can optimize the copy of large dataset to multiple drives for backup or distribution purposes.
 By reading the source data only once gemino does not suffer from source bottlenecks.
@@ -20,7 +21,16 @@ with a parallel copy to many disks this means parallel reads which slow the over
 
 Reading the source data only once for the entire process (copy and hashing) allows gemino to increase drastically the copy performance, especially on slow source devices such as Network drives or HDDs.
 
-![screen_copy.png](screen_copy.png) ![screen_done.png](screen_done.png)
+![screen_main.png](screen_main.png)
+![screen_copy_basic.png](screen_copy_basic.png)
+
+*Basic Copy to Multiple Destinations.*
+
+![screen_copy_aff4.png](screen_copy_aff4.png)
+
+*Copy to AFF4 Container for Single Destination.*
+
+![screen_done.png](screen_done.png)
 
 ### Drawbacks
 #### Copy Performance
@@ -48,12 +58,12 @@ Solving this would need implementing multiprocessing, which will be for another 
 #### From binaries
 Just download the binaries for your system
 
-- from github's [release page](https://github.com/fservida/gemino/releases).
+- from github's [release page](https://github.com/fservida/gemino/releases). (Only Windows Binary Currently up-to-date, macOS will follow soon)
 - from fbs release system
-  - macOS: [https://fbs.sh/fservida/gemino/gemino.dmg](https://fbs.sh/fservida/gemino/gemino.dmg)
-  - windows: [https://fbs.sh/fservida/gemino/geminoSetup.exe](https://fbs.sh/fservida/gemino/geminoSetup.exe)
-  - ubuntu: [https://fbs.sh/fservida/gemino/gemino.deb](https://fbs.sh/fservida/gemino/gemino.deb)
-    - via apt with auto-updates:
+  - macOS: [https://fbs.sh/fservida/gemino/gemino.dmg](https://fbs.sh/fservida/gemino/gemino.dmg) !outdated!
+  - windows: [https://fbs.sh/fservida/gemino/geminoSetup.exe](https://fbs.sh/fservida/gemino/geminoSetup.exe) !outdated!
+  - ubuntu: [https://fbs.sh/fservida/gemino/gemino.deb](https://fbs.sh/fservida/gemino/gemino.deb) !outdated!
+    - via apt with auto-updates: !outdated!
     - ```
       sudo apt-get install apt-transport-https
       wget -qO - https://fbs.sh/fservida/gemino/public-key.gpg | sudo apt-key add -

@@ -1,9 +1,9 @@
 altgraph==0.16.1
 boto3==1.9.72
 botocore==1.12.72
-certifi==2018.8.24
+certifi==2018.11.29
 docutils==0.14
-fbs==0.6.2
+fbs==0.8.6
 future==0.17.1
 jmespath==0.9.3
 macholib==1.11
@@ -14,4 +14,4 @@ python-dateutil==2.7.5
 s3transfer==0.1.13
 shiboken2==5.12.0
 six==1.12.0
-urllib3==1.24.1
+urllib3==1.24.2

@@ -1,7 +1,11 @@
 from PySide2 import QtWidgets, QtCore, QtGui
+from datetime import datetime, timedelta
+import webbrowser
+import os
+import os.path as path
 
-from .threads import SizeCalcThread, CopyThread
-
+from .utils import SizeCalcThread
+from .copy.logical.copy import CopyThread
 
 class VolumeProgress(QtWidgets.QWidget):
     __STATUSES = {
@@ -14,7 +18,7 @@ class VolumeProgress(QtWidgets.QWidget):
         'error_io': 'Lost Communication to Device'
     }
 
-    def __init__(self, volume_name, total_bytes, total_files):
+    def __init__(self, volume_name, total_bytes, total_files, aff4_filename: str = ""):
         super().__init__()
 
         # Init Data
@@ -24,8 +28,13 @@ class VolumeProgress(QtWidgets.QWidget):
         self.__processed_files = 0
         self.__total_files = total_files
         self.__processed_bytes = 0
+        self.__previous_bytes_granular = 0  # Processed bytes updated with minimum 1 second granularity
         self.__total_bytes = total_bytes
         self.__volume_name = volume_name
+        self.__previous_time = datetime.now()
+        self.__speed = 0
+        self.__eta = timedelta(seconds=0)
+        self.__aff4_filename = aff4_filename
 
         # UI
         self.__setup_ui()
@@ -34,36 +43,53 @@ class VolumeProgress(QtWidgets.QWidget):
     def __setup_ui(self):
         self.__volume_label = QtWidgets.QLabel()
         self.__current_status_label = QtWidgets.QLabel()
-        self.__current_status_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self.__current_status_label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
         self.__progress_bar = QtWidgets.QProgressBar()
         self.__current_file_label = QtWidgets.QLabel()
         self.__size_progress_label = QtWidgets.QLabel()
         self.__size_progress_label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
+        self.__speed_label = QtWidgets.QLabel()
+        self.__speed_label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
+        self.__eta_label = QtWidgets.QLabel()
+        self.__eta_label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
         self.__file_progress_label = QtWidgets.QLabel()
         self.__file_progress_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self.__open_folder_button = QtWidgets.QPushButton('Open Destination')
+        self.__open_folder_button.clicked.connect(self.__open_folder)
 
         self.__layout_container = QtWidgets.QVBoxLayout()
         self.__layout_first_row = QtWidgets.QHBoxLayout()
         self.__layout_third_row = QtWidgets.QHBoxLayout()
+        self.__layout_fourth_row = QtWidgets.QHBoxLayout()
         self.__layout_first_row.addWidget(self.__volume_label)
         self.__layout_first_row.addWidget(self.__current_status_label)
+        self.__layout_first_row.addWidget(self.__open_folder_button)
         self.__layout_third_row.addWidget(self.__current_file_label)
-        self.__layout_third_row.addWidget(self.__size_progress_label)
-        self.__layout_third_row.addWidget(self.__file_progress_label)
+        self.__layout_fourth_row.addWidget(self.__size_progress_label)
+        self.__layout_fourth_row.addWidget(self.__speed_label)
+        self.__layout_fourth_row.addWidget(self.__eta_label)
+        self.__layout_fourth_row.addWidget(self.__file_progress_label)
 
         self.__layout_container.addLayout(self.__layout_first_row)
         self.__layout_container.addWidget(self.__progress_bar)  # "Second Row" Dedicated to Progress Bar
         self.__layout_container.addLayout(self.__layout_third_row)
+        self.__layout_container.addLayout(self.__layout_fourth_row)
 
         self.setLayout(self.__layout_container)
 
     def __update_ui(self):
-        self.__volume_label.setText(self.__volume_name)
+        if self.__aff4_filename:
+            self.__volume_label.setText(os.path.join(self.__volume_name, self.__aff4_filename))
+        else:
+            self.__volume_label.setText(self.__volume_name)
         self.__current_status_label.setText(VolumeProgress.__STATUSES[self.__status])
         self.__current_file_label.setText(self.__current_file)
         self.__size_progress_label.setText(
             "{:.2f} / {:.2f} GB".format(self.__processed_bytes / 10 ** 9, self.__total_bytes / 10 ** 9))
         self.__file_progress_label.setText("{} / {} files".format(self.__processed_files, self.__total_files))
+        self.__speed_label.setText(self.speed)
+        self.__eta_label.setText(str(self.__eta).split('.')[0])  # split ETA string on microsecond separator if present
+
         current_percent = self.__processed_bytes / self.__total_bytes * 100
         self.__progress_bar.setValue(current_percent)
 
@@ -73,8 +99,56 @@ class VolumeProgress(QtWidgets.QWidget):
 
     @processed_bytes.setter
     def processed_bytes(self, processed_bytes):
-        self.__processed_bytes = int(processed_bytes)
+        processed_bytes = int(processed_bytes)
+        if not processed_bytes or processed_bytes < self.__processed_bytes:
+            # print("Started Copy or Verification")
+            self.__previous_bytes_granular = processed_bytes
+        self.__processed_bytes = processed_bytes
+
+        # Calculate time elapsed since last update, set previous time to current update time
+        current_time = datetime.now()
+        delta_time = current_time - self.__previous_time
+        if delta_time.total_seconds() >= 1:
+            self.__previous_time = current_time
+
+            # Calculate bytes written since last update
+            delta_bytes = self.__processed_bytes - self.__previous_bytes_granular
+            self.__previous_bytes_granular = self.__processed_bytes
+
+            # Use previously calculated deltas to establish speed and ETA
+            elapsed_seconds = delta_time.total_seconds() + delta_time.microseconds / 10 ** 6
+            try:
+                self.__speed = delta_bytes / elapsed_seconds  # In bytes
+                remaining_bytes = self.__total_bytes - self.processed_bytes
+                remaining_seconds = remaining_bytes / self.__speed
+                self.__eta = timedelta(seconds=remaining_seconds)
+                # print(self.__speed, delta_bytes, elapsed_seconds, self.__eta)
+            except ZeroDivisionError:
+                # elapsed_seconds == 0
+                # print(
+                #     f"Zero division error!\n"
+                #     f"Seconds: {elapsed_seconds} "
+                #     f"- Processed Bytes: {processed_bytes} "
+                #     f"- Previous Bytes: {self.__previous_bytes_granular} "
+                #     f"- Delta Bytes: {delta_bytes} "
+                #     f"- Speed (Bytes/s): {self.__speed}"
+                # )
+                pass
+
+        # Finally Update UI
         self.__update_ui()
+
+    @property
+    def speed(self):
+        bytes_per_seconds = self.__speed
+        if bytes_per_seconds >= 10 ** 9:
+            return f"{bytes_per_seconds / 10 ** 9:.2f} GB/s"
+        elif bytes_per_seconds >= 10 ** 6:
+            return f"{bytes_per_seconds / 10 ** 6:.2f} MB/s"
+        elif bytes_per_seconds >= 10 ** 3:
+            return f"{bytes_per_seconds / 10 ** 3:.2f} KB/s"
+        else:
+            return f"{float(bytes_per_seconds):.2f} Bytes/s"
 
     @property
     def processed_files(self):
@@ -113,6 +187,9 @@ class VolumeProgress(QtWidgets.QWidget):
     def volume(self, volume):
         raise PermissionError('The Volume associated to a widget cannot be changed after the widget creation!')
 
+    def __open_folder(self):
+        webbrowser.open(f'file://{self.__volume_name}')
+
 
 class ProgressWindow(QtWidgets.QDialog):
     STATUSES = ('copying', 'hashing', 'end', 'cancel')
@@ -123,7 +200,7 @@ class ProgressWindow(QtWidgets.QDialog):
         'cancel': 'File copy has been interrupted',
     }
 
-    def __init__(self, src: str, dst: list, hash_algos: list, total_files: int, total_bytes: int):
+    def __init__(self, src: str, dst: list, hash_algos: list, total_files: int, total_bytes: int, metadata: list, aff4: bool, aff4_filename: str):
         super().__init__()
 
         self.setWindowTitle("Copy Progress")
@@ -138,7 +215,10 @@ class ProgressWindow(QtWidgets.QDialog):
 
         self.volume_progresses = []
         for destination in dst:
-            self.volume_progresses.append(VolumeProgress(destination, total_bytes, total_files))
+            if aff4:
+                self.volume_progresses.append(VolumeProgress(destination, total_bytes, total_files, aff4_filename))
+            else:
+                self.volume_progresses.append(VolumeProgress(destination, total_bytes, total_files))
 
         self.layout = QtWidgets.QVBoxLayout()
         self.layout2 = QtWidgets.QHBoxLayout()
@@ -159,13 +239,20 @@ class ProgressWindow(QtWidgets.QDialog):
         self.dst = dst
         self.hash_algos = hash_algos
         self.total_files = total_files
+        self.aff4 = aff4
+        self.aff4_filename = aff4_filename
+
+        if self.aff4:
+            self.base_path = self.aff4_filename
+        else:
+            self.base_path = path.basename(path.normpath(src)) if path.basename(path.normpath(src)) != '' else '[root]'
 
         self.processed_files = 0
         self.status = ProgressWindow.STATUSES[0]
         self.update_ui()
 
         # Start copying files
-        self.thread = CopyThread(src, dst, hash_algos, total_files)
+        self.thread = CopyThread(src, dst, hash_algos, total_files, total_bytes, metadata, aff4, aff4_filename)
         self.thread.copy_progress.connect(self.update_progress, QtCore.Qt.QueuedConnection)
         self.thread.start()
 
@@ -180,7 +267,7 @@ class ProgressWindow(QtWidgets.QDialog):
         if status == -1:
             self.status = 'cancel'
             self.update_ui()
-            error_box("Halp! An Error Occurred!", "Bob is Sad T.T")
+            error_box("Halp! An Error Occurred!", f"Bob is Sad T.T\n\nDetails:\n{progress[1]}")
             return
 
         data = progress[1]
@@ -212,6 +299,16 @@ class ProgressWindow(QtWidgets.QDialog):
         # Terminate the thread
         self.thread.terminate()
         self.status = self.STATUSES[3]  # cancel
+
+        base_path = self.base_path
+        for dst in self.dst:
+            try:
+                report_file_path = path.join(dst, f'{base_path}_copy_report.txt')
+                with open(report_file_path, "a", encoding='utf-8') as report_file:
+                    report_file.write(f"\nUser interrupted copy process at: {datetime.now().isoformat()}")
+            except FileNotFoundError as error:
+                print(f"Error writing to report: {error}")
+                error_box('Error Writing to Report', error)
         self.update_ui()
 
 
@@ -244,54 +341,115 @@ class MainWidget(QtWidgets.QWidget):
         self.settings = QtCore.QSettings("ch.unil.esc-cyber", "Gemino")
 
         # Instantiate Widgets
-        self.dir_dialog = QtWidgets.QFileDialog(self)
-        self.dir_dialog.setFileMode(QtWidgets.QFileDialog.Directory)
-        self.dir_dialog.setOption(QtWidgets.QFileDialog.ShowDirsOnly)
-        self.dir_dialog_button = QtWidgets.QPushButton("Choose Files")
-        self.dir_dialog_button.clicked.connect(self.open_files)
-        self.dir_label = QtWidgets.QLabel("No Directory Selected")
+        # Source Dir
+        self.src_dir_dialog = QtWidgets.QFileDialog(self)
+        self.src_dir_dialog.setFileMode(QtWidgets.QFileDialog.Directory)
+        self.src_dir_dialog.setOption(QtWidgets.QFileDialog.ShowDirsOnly)
+        self.src_dir_dialog_button = QtWidgets.QPushButton("Choose Source Folder")
+        self.src_dir_dialog_button.clicked.connect(self.open_files)
+        self.src_dir_label = QtWidgets.QLabel("No Directory Selected")
         self.files_count_label = QtWidgets.QLabel("0 Files")
         self.size_label = QtWidgets.QLabel("0 GB")
+        # Destination Dir
+        self.dst_vbar = QtWidgets.QFrame()
+        self.dst_vbar.setFrameShape(QtWidgets.QFrame.VLine)
+        self.destinations_label = QtWidgets.QLabel("Destinations:")
+        self.dst_dir_dialog = QtWidgets.QFileDialog(self)
+        self.dst_dir_dialog.setFileMode(QtWidgets.QFileDialog.Directory)
+        self.dst_dir_dialog.setOption(QtWidgets.QFileDialog.ShowDirsOnly)
+        self.dst_dir_dialog_button = QtWidgets.QPushButton("Choose Destination Folder")
+        self.dst_dir_dialog_button.clicked.connect(self.select_dst_folder)
+        self.dst_dir_label = QtWidgets.QLabel("No Directory Selected")
+        self.dst_dir_information_label = QtWidgets.QLabel("Select a destination folder to view storage details")
+        # Drive buttons
         self.select_all_button = QtWidgets.QPushButton("Select All Drives")
         self.select_all_button.clicked.connect(self.select_all)
         self.deselect_all_button = QtWidgets.QPushButton("Deselect All Drives")
         self.deselect_all_button.clicked.connect(self.deselect_all)
         self.refresh_button = QtWidgets.QPushButton("Refresh Available Drives")
         self.refresh_button.clicked.connect(self.refresh_button_handler)
+        # Copy Buttons
         self.run_copy_button = QtWidgets.QPushButton("Start Copy")
         self.run_copy_button.clicked.connect(self.start_copy)
         self.volumes_list_label = QtWidgets.QLabel("Target Drives:")
         self.volumes_list = QtWidgets.QListWidget(self)
+        # Report & Hashing
+        self.report_hbar = QtWidgets.QFrame()
+        self.report_hbar.setFrameShape(QtWidgets.QFrame.HLine)
+        self.operator_name_label = QtWidgets.QLabel("Operator:")
+        self.operator_name_text_field = QtWidgets.QLineEdit()
+        self.intake_number_label = QtWidgets.QLabel("Intake:")
+        self.intake_number_text_field = QtWidgets.QLineEdit()
+        self.notes_label = QtWidgets.QLabel("Notes:")
+        self.notes_text_field = QtWidgets.QTextEdit()
         self.init_hashing_widgets()
+        # AFF4 Support
+        self.aff4_checkbox = QtWidgets.QCheckBox("Write to AFF4 Container - ALPHA SUPPORT!", self)
+        self.aff4_checkbox.stateChanged.connect(self.toggle_aff4_filename)
+        self.aff4_filename_label = QtWidgets.QLabel("AFF4 Container Filename (w/o extension):")
+        self.aff4_filename = QtWidgets.QLineEdit()
+        self.toggle_aff4_filename()
 
         # Layout Management
-        self.layout = QtWidgets.QVBoxLayout()
-        self.dir_dialog_layout = QtWidgets.QHBoxLayout()
-        self.dir_dialog_layout.addWidget(self.dir_dialog_button)
-        self.dir_dialog_layout.addWidget(self.dir_label)
-        self.layout.addLayout(self.dir_dialog_layout)
+        self.layout = QtWidgets.QHBoxLayout()
+        self.left_layout = QtWidgets.QVBoxLayout()
+        self.right_layout = QtWidgets.QVBoxLayout()
+        self.layout.addLayout(self.left_layout)
+        self.layout.addWidget(self.dst_vbar)
+        self.layout.addLayout(self.right_layout)
+        self.src_dir_dialog_layout = QtWidgets.QHBoxLayout()
+        self.src_dir_dialog_layout.addWidget(self.src_dir_dialog_button)
+        self.src_dir_dialog_layout.addWidget(self.src_dir_label)
+        self.left_layout.addLayout(self.src_dir_dialog_layout)
         self.file_info_layout = QtWidgets.QHBoxLayout()
         self.file_info_layout.addWidget(self.files_count_label)
         self.file_info_layout.addWidget(self.size_label)
-        self.layout.addLayout(self.file_info_layout)
+        self.left_layout.addLayout(self.file_info_layout)
+        self.left_layout.addWidget(self.report_hbar)
+        self.metadata_layout = QtWidgets.QHBoxLayout()
+        self.metadata_layout.addWidget(self.operator_name_label)
+        self.metadata_layout.addWidget(self.operator_name_text_field)
+        self.metadata_layout.addWidget(self.intake_number_label)
+        self.metadata_layout.addWidget(self.intake_number_text_field)
+        self.left_layout.addLayout(self.metadata_layout)
+        self.left_layout.addWidget(self.notes_label)
+        self.left_layout.addWidget(self.notes_text_field)
         self.hash_layout = QtWidgets.QHBoxLayout()
         self.hash_layout.addWidget(self.hash_label)
         self.hash_layout.addWidget(self.md5_checkbox)
         self.hash_layout.addWidget(self.sha1_checkbox)
         self.hash_layout.addWidget(self.sha256_checkbox)
-        self.layout.addLayout(self.hash_layout)
-        self.layout.addWidget(self.volumes_list_label)
-        self.layout.addWidget(self.volumes_list)
+        self.left_layout.addLayout(self.hash_layout)
+        # AFF4
+        self.aff4_layout = QtWidgets.QVBoxLayout()
+        self.aff4_checkbox_layout = QtWidgets.QHBoxLayout()
+        self.aff4_checkbox_layout.addWidget(self.aff4_checkbox)
+        self.aff4_filename_layout = QtWidgets.QHBoxLayout()
+        self.aff4_filename_layout.addWidget(self.aff4_filename_label)
+        self.aff4_filename_layout.addWidget(self.aff4_filename)
+        self.aff4_layout.addLayout(self.aff4_checkbox_layout)
+        self.aff4_layout.addLayout(self.aff4_filename_layout)
+        self.left_layout.addLayout(self.aff4_layout)
+        # Right Side
+        self.right_layout.addWidget(self.destinations_label)
+        self.dst_dir_dialog_layout = QtWidgets.QHBoxLayout()
+        self.dst_dir_dialog_layout.addWidget(self.dst_dir_dialog_button)
+        self.dst_dir_dialog_layout.addWidget(self.dst_dir_label)
+        self.right_layout.addLayout(self.dst_dir_dialog_layout)
+        self.right_layout.addWidget(self.dst_dir_information_label)
+        self.right_layout.addWidget(self.volumes_list_label)
+        self.right_layout.addWidget(self.volumes_list)
         self.volumes_select_layout = QtWidgets.QHBoxLayout()
         self.volumes_select_layout.addWidget(self.select_all_button)
         self.volumes_select_layout.addWidget(self.deselect_all_button)
         self.volumes_select_layout.addWidget(self.refresh_button)
-        self.layout.addLayout(self.volumes_select_layout)
-        self.layout.addWidget(self.run_copy_button)
+        self.right_layout.addLayout(self.volumes_select_layout)
+        self.right_layout.addWidget(self.run_copy_button)
         self.setLayout(self.layout)
 
         # Init data and fill widgets
         self.dir_size = 0
+        self.dst_folder = None
         self.get_volumes()
         self.populate_volumes_widget()
 
@@ -307,8 +465,12 @@ class MainWidget(QtWidgets.QWidget):
         for volume in self.volumes:
             if not volume.isReadOnly() and volume.bytesFree() > self.dir_size:
                 item = QtWidgets.QListWidgetItem(
-                    "{} - {} - {:.2f} GB Free".format(volume.name(), volume.fileSystemType().data().decode(),
-                                                      volume.bytesFree() / 10 ** 9))
+                    "{} - {} - {} - {} - {:.2f} GB Free".format(volume.rootPath(),
+                                                                volume.name(),
+                                                                volume.device().data().decode(),
+                                                                volume.fileSystemType().data().decode(),
+                                                                volume.bytesFree() / 10 ** 9)
+                )
                 item.setData(256, volume)
                 self.volumes_list.addItem(item)
             else:
@@ -347,15 +509,82 @@ class MainWidget(QtWidgets.QWidget):
         hash_algos = [hash_algo.text() for hash_algo in self.hashing_algos.buttons() if hash_algo.isChecked()]
         dst_volumes = [item.data(256).rootPath() for item in self.volumes_list.selectedItems() if
                        not item.data(256).isReadOnly() and item.data(256).bytesFree() > self.dir_size]
+        if self.dst_folder:
+            dst_folder_storage_info = QtCore.QStorageInfo(self.dst_folder)
+            dst_folder_writable = os.access(self.dst_folder, os.W_OK)
+            if dst_folder_storage_info.isReady() and dst_folder_writable and dst_folder_storage_info.bytesFree() > self.dir_size:
+                dst_volumes.append(self.dst_folder)
+
+        if self.aff4_checkbox.isChecked() and len(dst_volumes) > 1:
+            #error_box("Writing to Multiple Destinations When Using AFF4 Creates Container Files With Different Hashes.\n\n"
+            #          "You will have to verify the content of the AFF4 containers when comparing containers and not the container itself.\n")
+            error_box("Only One Destination Supported When Using AFF4 Containers")
+            return
+
+        if self.aff4_checkbox.isChecked():
+            error_box("Warning - AFF4 Support is Alpha Level\n\n"
+                      "Might Not Copy Correctly / Create Corrupted Containers\n"
+                      "Verification Not Yet Implemented\n"
+                      "Use with caution and report all bugs.")
+
+        dst_volumes = self.check_existing(dst_volumes)
+        dst_volumes = self.normalize_paths(dst_volumes)
+
         if dst_volumes:
             # At least one drive selected and writable
-            progress = ProgressWindow(self.source_dir, dst_volumes, hash_algos, self.files_count, self.dir_size)
+            progress = ProgressWindow(self.source_dir, dst_volumes, hash_algos, self.files_count, self.dir_size,
+                                      self.metadata, self.aff4_checkbox.isChecked(), self.aff_filename)
             progress.setWindowFlags(QtCore.Qt.CustomizeWindowHint)
             progress.setModal(True)
             progress.exec_()
             # copy_files(self.source_dir, dst_volumes, hash_algos)
         else:
             error_box("No Writable/Valid Drive Selected!")
+
+    # TODO - If AFF4 -> Check if same filename exists and not if folder is empty.
+    def check_existing(self, volumes):
+        base_path = self.src_base_path
+        for i in range(len(volumes)):
+            dst_path = os.path.join(volumes[i], base_path)
+            if os.path.exists(dst_path) and os.listdir(dst_path):
+                # Folder not empty alert user
+                print(f"{dst_path} not empty!")
+                if self.confirm_overwrite(dst_path):
+                    print("User chose to overwrite")
+                    pass
+                else:
+                    # If user cancels:
+                    print("User chose to skip folder, remove from destinations.")
+                    volumes.pop(i)
+        return volumes
+
+    @property
+    def src_base_path(self):
+        base_path = path.basename(path.normpath(self.source_dir)) if path.basename(
+            path.normpath(self.source_dir)) != '' else '[root]'
+        return base_path
+
+    def normalize_paths(self, destinations: list):
+        for i in range(len(destinations)):
+            destination = destinations[i]
+            destination = os.path.normpath(destination)
+            destinations[i] = destination
+
+        return destinations
+
+    @property
+    def aff_filename(self):
+        """
+        Append AFF4 Container to specified destinations if AFF4 is enabled
+        :param destinations: list of destination PATHS
+        :return: destinations: list of AFF4 container PATHS
+        """
+        aff4_filename = self.aff4_filename.text()
+        if not aff4_filename:
+            aff4_filename = self.src_base_path
+        aff4_filename += ".aff4"
+
+        return aff4_filename
 
     def init_hashing_widgets(self):
         # Hash Related Widgets
@@ -365,8 +594,13 @@ class MainWidget(QtWidgets.QWidget):
             'sha256': None,
         }
         for hash_algo in hash_algos:
-            hash_algos[hash_algo] = self.settings.value(hash_algo) if self.settings.value(
-                hash_algo) is not None else True
+            stored_setting = self.settings.value(hash_algo)
+            if isinstance(stored_setting, str):
+                # Windows returns a string
+                hash_algos[hash_algo] = (stored_setting == 'true') if stored_setting is not None else True
+            else:
+                # macOS, returns a Boolean
+                hash_algos[hash_algo] = bool(stored_setting) if stored_setting is not None else True
         self.hash_label = QtWidgets.QLabel("Hashing Algorithms: ")
         self.md5_checkbox = QtWidgets.QCheckBox("md5", self)
         self.md5_checkbox.setChecked(hash_algos["md5"])
@@ -380,11 +614,21 @@ class MainWidget(QtWidgets.QWidget):
         self.hashing_algos.addButton(self.sha1_checkbox)
         self.hashing_algos.addButton(self.sha256_checkbox)
 
+    def toggle_aff4_filename(self):
+        self.aff4_filename.setDisabled(not self.aff4_checkbox.isChecked())
+
     def open_files(self):
-        self.source_dir = self.dir_dialog.getExistingDirectory(self, "Choose Directory to Copy")
-        self.dir_label.setText(self.source_dir if self.source_dir else "No Directory Selected")
+        self.source_dir = self.src_dir_dialog.getExistingDirectory(self, "Choose Directory to Copy")
+        self.src_dir_label.setText(self.source_dir if self.source_dir else "No Directory Selected")
         if self.source_dir:
             self.get_size()
+
+    def select_dst_folder(self):
+        self.dst_folder = self.dst_dir_dialog.getExistingDirectory(self, "Choose Directory to Copy")
+        self.dst_dir_label.setText(self.dst_folder if self.dst_folder else "No Directory Selected")
+        if not self.dst_folder:
+            self.dst_dir_information_label.setText("Select a destination folder to view storage details")
+        self.dst_folder_check()
 
     def select_all(self):
         self.volumes_list.selectAll()
@@ -415,18 +659,79 @@ class MainWidget(QtWidgets.QWidget):
         # Kill Modal View
         self.loading.close()
 
+    def dst_folder_check(self):
+        if self.dst_folder:
+            # Only execute if a destination folder has been selected
+            dst_storage_info = QtCore.QStorageInfo(self.dst_folder)
+            dst_bytes_available = dst_storage_info.bytesAvailable()
+            dst_folder_writable = os.access(self.dst_folder, os.W_OK)
+            if dst_bytes_available > self.dir_size:
+                # Enough space available on destination
+                self.dst_dir_information_label.setText("Enough space available on destination")
+            else:
+                self.dst_dir_information_label.setText("NOT Enough space available on destination")
+
+            if dst_folder_writable and dst_storage_info.bytesFree() > self.dir_size:
+                self.dst_dir_information_label.setText(
+                    "On volume: {} - {} - {:.2f} GB Free".format(dst_storage_info.name(),
+                                                                 dst_storage_info.fileSystemType().data().decode(),
+                                                                 dst_storage_info.bytesFree() / 10 ** 9))
+            else:
+                errors = []
+                if not dst_folder_writable:
+                    errors.append("ReadOnly")
+                if dst_storage_info.bytesFree() < self.dir_size:
+                    errors.append("Insufficient Space")
+                self.dst_dir_information_label.setText(
+                    "On volume: {} - {} - {:.2f} GB Free - ! {} !".format(
+                        dst_storage_info.name(),
+                        dst_storage_info.fileSystemType().data().decode(),
+                        dst_storage_info.bytesFree() / 10 ** 9,
+                        ", ".join(errors))
+                )
+                # self.dst_dir_information_label.setTextColor(QtGui.QColor(255, 0, 0))
+
+    @property
+    def metadata(self):
+        return {
+            'operator': self.operator_name_text_field.text(),
+            'intake': self.intake_number_text_field.text(),
+            'notes': self.notes_text_field.toPlainText(),
+        }
+
+    def confirm_overwrite(self, path):
+        confirmation = QtWidgets.QMessageBox()
+        choice = confirmation.question(self, 'Confirm Overwrite',
+                                       f'Directory: {path} is not empty.\nData contained may be overwritten without additional confirmation.\n\nDo you want to continue?',
+                                       QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No)
+        if choice == QtWidgets.QMessageBox.Yes:
+            return True
+        else:
+            return False
+
 
 class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self):
+    def __init__(self, version):
         super().__init__()
 
         self.setCentralWidget(MainWidget())
-
         self.initMenu()
+        self.version = version
 
     def initMenu(self):
-        menubar = self.menuBar()
-        fileMenu = menubar.addMenu("Hola")
-        quit = QtWidgets.QAction("Quit", self)
-        quit.triggered.connect(self.close)
-        fileMenu.addAction(quit)
+        bar = self.menuBar()
+        self.help = bar.addMenu("Help")
+        self.about = QtWidgets.QAction("About")
+        self.about.triggered.connect(self.about_box)
+        self.help.addAction(self.about)
+
+    def about_box(self):
+        message = QtWidgets.QMessageBox()
+        message.setIcon(QtWidgets.QMessageBox.Information)
+        message.setText("gemino")
+        message.setInformativeText(
+            "gemino file duplicator\n\nv{} - January 2019\n\nDeveloped with ❤️ by Francesco Servida during the work at:\n - University of Lausanne\n - United Nations Investigative Team for Accountability of crimes committed by Da’esh/ISIL (UNITAD)\n\nLicensed under GPLv3\nhttps://opensource.org/licenses/GPL-3.0".format(
+                self.version))
+        message.setWindowTitle("About")
+        message.setStandardButtons(QtWidgets.QMessageBox.Ok)
+        message.exec_()
