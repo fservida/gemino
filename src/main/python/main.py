@@ -1,16 +1,16 @@
-from fbs_runtime.application_context import ApplicationContext
+from fbs_runtime.application_context.PySide2 import ApplicationContext
 
 import sys
 
-from gemino import MainWindow
+from gemino.widgets import MainWindow
 
 
 class AppContext(ApplicationContext):  # 1. Subclass ApplicationContext
     def run(self):  # 2. Implement run()
-        window = MainWindow()
         version = self.build_settings['version']
+        window = MainWindow(version)
         window.setWindowTitle("gemino v" + version)
-        window.resize(650, 600)
+        window.resize(800, 600)
         window.show()
         return self.app.exec_()  # 3. End run() with this line
 
