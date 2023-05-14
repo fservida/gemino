@@ -80,6 +80,13 @@ pip install -r requirements.txt
 fbs run
 ```
 
+On platforms with apple silicon use the following to create the needed environment for x64 binaries using rosetta (ensure rosetta is installed before by running any x64 binary):
+```bash
+CONDA_SUBDIR=osx-64 conda create -n rosetta python   # create a new environment called rosetta with intel packages.
+conda activate rosetta
+python -c "import platform;print(platform.machine())"
+conda config --env --set subdir osx-64
+```
 
 **Supported Platforms**
 - macOS 10.14+ 
@@ -97,3 +104,4 @@ When submitting PRs please ensure your code is well commented, just like mine.
 ### Feedbacks
 
 Feel free to open issues and leave your feedback
+
