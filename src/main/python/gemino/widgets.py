@@ -340,6 +340,41 @@ class MainWidget(QtWidgets.QWidget):
 
         self.settings = QtCore.QSettings("ch.unil.esc-cyber", "Gemino")
 
+        # App default configuration via file
+        # Ini files with settings that will be imposed and will not be changeable by user.
+        self.managed_settings = False
+        self.managed_logo = None                # interface/logo        -> If set logo will be displayed in interface
+        self.managed_algorithms = None          # hashing/algorithms    -> If set forces the usage of algorithms included in comma separated list
+        self.managed_destinations_aff4 = None   # destinations/aff4     -> If true forces the creation of AFF4 images
+        self.managed_destinations_drives = None # destinations/drives   -> If false disables the drives box
+        if os.path.exists("config.ini"):
+            self.managed_settings = QtCore.QSettings("config.ini", QtCore.QSettings.IniFormat)
+            self.managed_logo = self.managed_settings.value("interface/logo", None)
+            if self.managed_logo is not None and not os.path.exists(self.managed_logo):
+                self.managed_logo = None
+            self.managed_algorithms = self.managed_settings.value("hashing/algorithms", None)
+            if self.managed_algorithms is not None:
+                try:
+                    assert isinstance(self.managed_algorithms, list)
+                    managed_algorithms = self.managed_algorithms
+                except AssertionError:
+                    if isinstance(self.managed_algorithms, str):
+                        managed_algorithms = [self.managed_algorithms]
+                    else:
+                        managed_algorithms = None
+                if managed_algorithms is not None:  # if wrong value supplied keep none and do not force set empty list.
+                    allowed_algorithms = ["md5", "sha1", "sha256"]
+                    self.managed_algorithms = []
+                    for algorithm in managed_algorithms:
+                        if algorithm in allowed_algorithms:
+                            self.managed_algorithms.append(algorithm)
+            self.managed_destinations_aff4 = self.managed_settings.value("destinations/aff4", None)
+            if self.managed_destinations_aff4 is not None:
+                self.managed_destinations_aff4 = self.managed_destinations_aff4.lower() == 'true'
+            self.managed_destinations_drives = self.managed_settings.value("destinations/drives", None)
+            if self.managed_destinations_drives is not None:
+                self.managed_destinations_drives = self.managed_destinations_drives.lower() == 'true'
+
         # Instantiate Widgets
         # Source Dir
         self.src_dir_dialog = QtWidgets.QFileDialog(self)
@@ -371,8 +406,15 @@ class MainWidget(QtWidgets.QWidget):
         # Copy Buttons
         self.run_copy_button = QtWidgets.QPushButton("Start Copy")
         self.run_copy_button.clicked.connect(self.start_copy)
+        # Volumes
         self.volumes_list_label = QtWidgets.QLabel("Target Drives:")
         self.volumes_list = QtWidgets.QListWidget(self)
+        if self.managed_destinations_drives is not None:
+            self.volumes_list_label.setDisabled(not self.managed_destinations_drives)
+            self.volumes_list.setDisabled(not self.managed_destinations_drives)
+            self.select_all_button.setDisabled(not self.managed_destinations_drives)
+            self.deselect_all_button.setDisabled(not self.managed_destinations_drives)
+            self.refresh_button.setDisabled(not self.managed_destinations_drives)
         # Report & Hashing
         self.report_hbar = QtWidgets.QFrame()
         self.report_hbar.setFrameShape(QtWidgets.QFrame.HLine)
@@ -384,14 +426,30 @@ class MainWidget(QtWidgets.QWidget):
         self.notes_text_field = QtWidgets.QTextEdit()
         self.init_hashing_widgets()
         # AFF4 Support
-        self.aff4_checkbox = QtWidgets.QCheckBox("Write to AFF4 Container - ALPHA SUPPORT!", self)
+        self.aff4_checkbox = QtWidgets.QCheckBox("Write to AFF4 Container - Beta support", self)
         self.aff4_checkbox.stateChanged.connect(self.toggle_aff4_filename)
         self.aff4_filename_label = QtWidgets.QLabel("AFF4 Container Filename (w/o extension):")
         self.aff4_filename = QtWidgets.QLineEdit()
         self.toggle_aff4_filename()
+        if self.managed_destinations_aff4 is not None:
+            self.aff4_checkbox.setChecked(self.managed_destinations_aff4)
+            self.aff4_checkbox.setDisabled(True)
+            self.aff4_filename_label.setDisabled(not self.managed_destinations_aff4)
+            self.aff4_filename.setDisabled(not self.managed_destinations_aff4)
 
         # Layout Management
+        self.window_layout = QtWidgets.QVBoxLayout()
+        if self.managed_logo is not None:
+            pixmap = QtGui.QPixmap(self.managed_logo)
+            self.logo_label = QtWidgets.QLabel()
+            self.logo_label.setPixmap(pixmap.scaledToHeight(150))
+            self.window_layout.addWidget(self.logo_label, alignment=QtCore.Qt.AlignCenter)
+        if self.managed_settings is not None:
+            self.managed_settings_label = QtWidgets.QLabel("Some of these settings may be managed by your organization.")
+            self.managed_settings_label.setDisabled(True)
+            self.window_layout.addWidget(self.managed_settings_label, alignment=QtCore.Qt.AlignCenter)
         self.layout = QtWidgets.QHBoxLayout()
+        self.window_layout.addLayout(self.layout)
         self.left_layout = QtWidgets.QVBoxLayout()
         self.right_layout = QtWidgets.QVBoxLayout()
         self.layout.addLayout(self.left_layout)
@@ -445,7 +503,7 @@ class MainWidget(QtWidgets.QWidget):
         self.volumes_select_layout.addWidget(self.refresh_button)
         self.right_layout.addLayout(self.volumes_select_layout)
         self.right_layout.addWidget(self.run_copy_button)
-        self.setLayout(self.layout)
+        self.setLayout(self.window_layout)
 
         # Init data and fill widgets
         self.dir_size = 0
@@ -522,10 +580,9 @@ class MainWidget(QtWidgets.QWidget):
             return
 
         if self.aff4_checkbox.isChecked():
-            error_box("Warning - AFF4 Support is Alpha Level\n\n"
-                      "Might Not Copy Correctly / Create Corrupted Containers\n"
-                      "Verification Not Yet Implemented\n"
-                      "Use with caution and report all bugs.")
+            error_box("Warning - AFF4 Support is Beta Level\n\n"
+                      "Might Not Copy Correctly\n"
+                      "Use with caution and report all bugs especially with non latin alphabets.")
 
         dst_volumes = self.check_existing(dst_volumes)
         dst_volumes = self.normalize_paths(dst_volumes)
@@ -593,14 +650,18 @@ class MainWidget(QtWidgets.QWidget):
             'sha1': None,
             'sha256': None,
         }
-        for hash_algo in hash_algos:
-            stored_setting = self.settings.value(hash_algo)
-            if isinstance(stored_setting, str):
-                # Windows returns a string
-                hash_algos[hash_algo] = (stored_setting == 'true') if stored_setting is not None else True
-            else:
-                # macOS, returns a Boolean
-                hash_algos[hash_algo] = bool(stored_setting) if stored_setting is not None else True
+        if self.managed_algorithms is not None:
+            for hash_algo in hash_algos:
+                hash_algos[hash_algo] = hash_algo in self.managed_algorithms
+        else:
+            for hash_algo in hash_algos:
+                stored_setting = self.settings.value(hash_algo)
+                if isinstance(stored_setting, str):
+                    # Windows returns a string
+                    hash_algos[hash_algo] = (stored_setting == 'true') if stored_setting is not None else True
+                else:
+                    # macOS, returns a Boolean
+                    hash_algos[hash_algo] = bool(stored_setting) if stored_setting is not None else True
         self.hash_label = QtWidgets.QLabel("Hashing Algorithms: ")
         self.md5_checkbox = QtWidgets.QCheckBox("md5", self)
         self.md5_checkbox.setChecked(hash_algos["md5"])
@@ -613,8 +674,14 @@ class MainWidget(QtWidgets.QWidget):
         self.hashing_algos.addButton(self.md5_checkbox)
         self.hashing_algos.addButton(self.sha1_checkbox)
         self.hashing_algos.addButton(self.sha256_checkbox)
+        if self.managed_algorithms is not None:
+            self.hash_label.setDisabled(True)
+            self.md5_checkbox.setDisabled(True)
+            self.sha1_checkbox.setDisabled(True)
+            self.sha256_checkbox.setDisabled(True)
 
     def toggle_aff4_filename(self):
+        self.aff4_filename_label.setDisabled(not self.aff4_checkbox.isChecked())
         self.aff4_filename.setDisabled(not self.aff4_checkbox.isChecked())
 
     def open_files(self):
@@ -730,7 +797,7 @@ class MainWindow(QtWidgets.QMainWindow):
         message.setIcon(QtWidgets.QMessageBox.Information)
         message.setText("gemino")
         message.setInformativeText(
-            "gemino file duplicator\n\nv{} - January 2019\n\nDeveloped with ❤️ by Francesco Servida during the work at:\n - University of Lausanne\n - United Nations Investigative Team for Accountability of crimes committed by Da’esh/ISIL (UNITAD)\n\nLicensed under GPLv3\nhttps://opensource.org/licenses/GPL-3.0".format(
+            "gemino\n\nForensic logical imager and file duplicator\n\nv{} - May 2023\n\nDeveloped with ❤️ by Francesco Servida during the work at:\n - University of Lausanne\n - United Nations Investigative Team for Accountability of crimes committed by Da’esh/ISIL (UNITAD)\n\nLicensed under GPLv3\nhttps://opensource.org/licenses/GPL-3.0".format(
                 self.version))
         message.setWindowTitle("About")
         message.setStandardButtons(QtWidgets.QMessageBox.Ok)

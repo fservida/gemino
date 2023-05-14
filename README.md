@@ -12,7 +12,7 @@ This was born as a small project to help in my workflow, and has since evolved i
 - **On the fly hashing**: gemino hashes the source data while copying
 - **"Multicasting"**: gemino uses multiple threads to optimize the writing of the copies to the target drives
 - **Verification**: gemino verifies the written data to the destination devices (well, what forensic tool would it be if that wasn't the case? ＼(￣▽￣)／	 )
-- **AFF4**: Support for creation of AFF4 containers __⚠alpha status⚠__ - Only one destination possible
+- **AFF4**: Support for creation of AFF4 containers __⚠beta status⚠__ - Only one destination possible
 
 Using gemino you can optimize the copy of large dataset to multiple drives for backup or distribution purposes.
 By reading the source data only once gemino does not suffer from source bottlenecks.
