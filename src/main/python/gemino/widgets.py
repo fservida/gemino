@@ -334,6 +334,32 @@ def error_box(text, subtitle="", details=""):
     message.exec_()
 
 
+class FileDialog(QtWidgets.QFileDialog):
+    '''
+    https://stackoverflow.com/a/6585855
+    '''
+    def __init__(self, *args):
+        QtWidgets.QFileDialog.__init__(self, *args)
+        self.setOption(self.DontUseNativeDialog, True)
+        self.setFileMode(self.ExistingFiles)
+        btns = self.findChildren(QtWidgets.QPushButton)
+        self.openBtn = [x for x in btns if 'open' in str(x.text()).lower()][0]
+        self.openBtn.clicked.disconnect()
+        self.openBtn.clicked.connect(self.openClicked)
+        self.tree = self.findChild(QtWidgets.QTreeView)
+
+    def openClicked(self):
+        inds = self.tree.selectionModel().selectedIndexes()
+        files = []
+        for i in inds:
+            if i.column() == 0:
+                files.append(os.path.join(str(self.directory().absolutePath()),str(i.data().toString())))
+        self.selectedFiles = files
+        self.hide()
+
+    def filesSelected(self):
+        return self.selectedFiles
+
 class MainWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
@@ -377,12 +403,12 @@ class MainWidget(QtWidgets.QWidget):
 
         # Instantiate Widgets
         # Source Dir
-        self.src_dir_dialog = QtWidgets.QFileDialog(self)
-        self.src_dir_dialog.setFileMode(QtWidgets.QFileDialog.Directory)
-        self.src_dir_dialog.setOption(QtWidgets.QFileDialog.ShowDirsOnly)
-        self.src_dir_dialog_button = QtWidgets.QPushButton("Choose Source Folder")
+        self.src_dir_dialog = FileDialog(self)
+        #self.src_dir_dialog.setFileMode(QtWidgets.QFileDialog.Directory)
+        #self.src_dir_dialog.setOption(QtWidgets.QFileDialog.DontUseNativeDialog, True)
+        self.src_dir_dialog_button = QtWidgets.QPushButton("Choose Source Data")
         self.src_dir_dialog_button.clicked.connect(self.open_files)
-        self.src_dir_label = QtWidgets.QLabel("No Directory Selected")
+        self.src_dir_label = QtWidgets.QLabel("No Source Data Selected")
         self.files_count_label = QtWidgets.QLabel("0 Files")
         self.size_label = QtWidgets.QLabel("0 GB")
         # Destination Dir
@@ -685,9 +711,18 @@ class MainWidget(QtWidgets.QWidget):
         self.aff4_filename.setDisabled(not self.aff4_checkbox.isChecked())
 
     def open_files(self):
-        self.source_dir = self.src_dir_dialog.getExistingDirectory(self, "Choose Directory to Copy")
-        self.src_dir_label.setText(self.source_dir if self.source_dir else "No Directory Selected")
-        if self.source_dir:
+        # l = self.src_dir_dialog.findChild(QtWidgets.QListView)
+        # if (l):
+        #     l.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
+        # t = self.src_dir_dialog.findChild(QtWidgets.QTreeView)
+        # if (t):
+        #     t.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
+        #
+        # nMode = self.src_dir_dialog.exec_()
+        # self.file_names = self.src_dir_dialog.selectedFiles()
+        self.file_names = self.src_dir_dialog.getOpenFileNames(self, "Choose Source to Copy")
+        self.src_dir_label.setText(str(self.file_names) if self.file_names else "No Source Selected")
+        if self.file_names:
             self.get_size()
 
     def select_dst_folder(self):
@@ -711,7 +746,7 @@ class MainWidget(QtWidgets.QWidget):
         self.loading.show()
 
         # Start Calculating size & File count
-        self.thread = SizeCalcThread(self.source_dir)
+        self.thread = SizeCalcThread(self.file_names)
         self.thread.data_ready.connect(self.size_calc_handle, QtCore.Qt.QueuedConnection)
         self.thread.start()
 
