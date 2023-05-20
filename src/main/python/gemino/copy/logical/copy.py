@@ -413,16 +413,6 @@ class CopyThread(QThread):
                 print(f"Error writing to report: {error}")
                 raise
 
-            for hash_algo in hashes:
-                hash_file_path = path.join(dst, f'{base_path}.{hash_algo}')
-                try:
-                    with open(hash_file_path, "w", encoding='utf-8') as hash_file:
-                        for file, file_hashes in files_hashes.items():
-                            hash_file.write(f"{file_hashes[hash_algo]} {file}\n")
-                except FileNotFoundError:
-                    print("Unable to write hash file in destination dir, volume not connected anymore.")
-                    raise
-
         # Verify Hashes
         print("Verifying Hashes...")
         progress = {dst: {'status': 'idle', 'processed_bytes': 0, 'processed_files': filecount, 'current_file': ''} for
