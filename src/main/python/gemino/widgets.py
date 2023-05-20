@@ -342,7 +342,7 @@ class MainWidget(QtWidgets.QWidget):
 
         # App default configuration via file
         # Ini files with settings that will be imposed and will not be changeable by user.
-        self.managed_settings = False
+        self.managed_settings = None
         self.managed_logo = None                # interface/logo        -> If set logo will be displayed in interface
         self.managed_algorithms = None          # hashing/algorithms    -> If set forces the usage of algorithms included in comma separated list
         self.managed_destinations_aff4 = None   # destinations/aff4     -> If true forces the creation of AFF4 images

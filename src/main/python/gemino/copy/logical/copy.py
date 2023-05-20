@@ -315,6 +315,20 @@ class CopyThread(QThread):
                 # Read Files and Folder and add to containers
                 filecount = 0
                 copied_size = 0
+
+                resolver.Set(volume.urn, volume.urn, rdfvalue.URN('http://aff4.org/Schema#caseName'),
+                                 rdfvalue.XSDString(utils.SmartUnicode(self.metadata['intake'])))
+                resolver.Set(volume.urn, volume.urn, rdfvalue.URN('http://aff4.org/Schema#caseDescription'),
+                             rdfvalue.XSDString(utils.SmartUnicode(self.metadata['notes'])))
+                resolver.Set(volume.urn, volume.urn, rdfvalue.URN('http://aff4.org/Schema#examiner'),
+                             rdfvalue.XSDString(utils.SmartUnicode(self.metadata['operator'])))
+                resolver.Add(volume.urn, volume.urn, rdfvalue.URN(lexicon.AFF4_TYPE),
+                             rdfvalue.URN('http://aff4.org/Schema#CaseDetails'))
+                resolver.Set(volume.urn, volume.urn, rdfvalue.URN('http://aff4.org/Schema#startTime'),
+                             rdfvalue.XSDString(utils.SmartUnicode(start_time.isoformat())))
+                resolver.Add(volume.urn, volume.urn, rdfvalue.URN(lexicon.AFF4_TYPE),
+                             rdfvalue.URN('http://aff4.org/Schema#TimeStamps'))
+
                 for dirpath, dirnames, filenames in os.walk(src):
                     # dst_folder - Join the destination folder (basename_of_source) with the actual relative path
                     rel_path = path.relpath(dirpath, src)
@@ -377,6 +391,11 @@ class CopyThread(QThread):
 
                 # Write Hash Files
                 end_time = datetime.now()
+
+                resolver.Set(volume.urn, volume.urn, rdfvalue.URN('http://aff4.org/Schema#endTime'),
+                             rdfvalue.XSDString(utils.SmartUnicode(end_time.isoformat())))
+
+
         print("Writing Hash Files...")
 
         for dst in destinations:
