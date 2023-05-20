@@ -325,7 +325,7 @@ class CopyThread(QThread):
                 resolver.Add(volume.urn, volume.urn, rdfvalue.URN(lexicon.AFF4_TYPE),
                              rdfvalue.URN('http://aff4.org/Schema#CaseDetails'))
                 resolver.Set(volume.urn, volume.urn, rdfvalue.URN('http://aff4.org/Schema#startTime'),
-                             rdfvalue.XSDString(utils.SmartUnicode(start_time.isoformat())))
+                             rdfvalue.XSDDateTime(utils.SmartUnicode(start_time.isoformat())))
                 resolver.Add(volume.urn, volume.urn, rdfvalue.URN(lexicon.AFF4_TYPE),
                              rdfvalue.URN('http://aff4.org/Schema#TimeStamps'))
 
@@ -393,7 +393,7 @@ class CopyThread(QThread):
                 end_time = datetime.now()
 
                 resolver.Set(volume.urn, volume.urn, rdfvalue.URN('http://aff4.org/Schema#endTime'),
-                             rdfvalue.XSDString(utils.SmartUnicode(end_time.isoformat())))
+                             rdfvalue.XSDDateTime(utils.SmartUnicode(end_time.isoformat())))
 
 
         print("Writing Hash Files...")
