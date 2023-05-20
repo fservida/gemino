@@ -14,7 +14,7 @@ from pyaff4 import hashes as aff4_hashes
 from pyaff4 import data_store, linear_hasher
 
 from ..utils import CopyBuffer
-from .aff4 import LinearVerificationListener, trimVolume
+from .aff4 import LinearVerificationListener, trimVolume, writeLogicalStream, createURN
 
 
 # TODO - Split CopyThread in Two Subclasses for basic and aff4 (and maybe others).
@@ -293,7 +293,7 @@ class CopyThread(QThread):
 
         base_path = self.base_path
 
-        buffer_size = 64 * 1024 * 1024  # Read 64M at a time
+        # buffer_size = 64 * 1024 * 1024  # Read 64M at a time
 
         files_hashes = {}  # {filepath: {hash_name:hash_value, ...}, ...}
 
@@ -303,7 +303,7 @@ class CopyThread(QThread):
         container_path = path.join(destination, self.base_path)
         with data_store.MemoryDataStore() as resolver:
             container_urn = rdfvalue.URN.FromFileName(container_path)
-            with container.Container.createURN(resolver, container_urn, encryption=False) as volume:
+            with createURN(resolver, container_urn, encryption=False) as volume:
                 hashers_algos = []
                 if "md5" in hashes:
                     hashers_algos.append(lexicon.HASH_MD5)
@@ -359,7 +359,7 @@ class CopyThread(QThread):
                             with open(src_file_path, "rb", buffering=0) as src_file:
                                 file_hashes = {hash_algo: "" for hash_algo in hashes}
                                 hasher = linear_hasher.StreamHasher(src_file, hashers_algos)
-                                urn = volume.writeLogicalStream(pathname, hasher, fsmeta.length)
+                                urn = writeLogicalStream(volume, pathname, hasher, fsmeta.length)  # Use edited "writeLogicalStream" which only creates zipsegments, independently of size.
                                 fsmeta.urn = urn
                                 fsmeta.store(resolver)
                                 for h in hasher.hashes:
