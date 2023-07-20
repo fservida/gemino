@@ -90,7 +90,10 @@ class VolumeProgress(QtWidgets.QWidget):
         self.__speed_label.setText(self.speed)
         self.__eta_label.setText(str(self.__eta).split('.')[0])  # split ETA string on microsecond separator if present
 
-        current_percent = self.__processed_bytes / self.__total_bytes * 100
+        try:
+            current_percent = self.__processed_bytes / self.__total_bytes * 100
+        except ZeroDivisionError:
+            current_percent = 100
         self.__progress_bar.setValue(current_percent)
 
     @property

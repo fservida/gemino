@@ -14,7 +14,7 @@ from pyaff4 import hashes as aff4_hashes
 from pyaff4 import data_store, linear_hasher
 
 from ..utils import CopyBuffer
-from .aff4 import LinearVerificationListener, trimVolume, writeLogicalStream, createURN
+from .aff4 import LinearVerificationListener, trimVolume
 
 
 # TODO - Split CopyThread in Two Subclasses for basic and aff4 (and maybe others).
@@ -303,7 +303,7 @@ class CopyThread(QThread):
         container_path = path.join(destination, self.base_path)
         with data_store.MemoryDataStore() as resolver:
             container_urn = rdfvalue.URN.FromFileName(container_path)
-            with createURN(resolver, container_urn, encryption=False) as volume:
+            with container.Container.createURN(resolver, container_urn, encryption=False, zip_based=True) as volume:
                 hashers_algos = []
                 if "md5" in hashes:
                     hashers_algos.append(lexicon.HASH_MD5)
@@ -373,7 +373,7 @@ class CopyThread(QThread):
                             with open(src_file_path, "rb", buffering=0) as src_file:
                                 file_hashes = {hash_algo: "" for hash_algo in hashes}
                                 hasher = linear_hasher.StreamHasher(src_file, hashers_algos)
-                                urn = writeLogicalStream(volume, pathname, hasher, fsmeta.length)  # Use edited "writeLogicalStream" which only creates zipsegments, independently of size.
+                                urn = volume.writeLogicalStream(pathname, hasher, fsmeta.length, allow_large_zipsegments=True)
                                 fsmeta.urn = urn
                                 fsmeta.store(resolver)
                                 for h in hasher.hashes:
