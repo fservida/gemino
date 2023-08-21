@@ -386,8 +386,11 @@ class MainWidget(QtWidgets.QWidget):
         self.src_dir_dialog_button = QtWidgets.QPushButton("Choose Source Folder")
         self.src_dir_dialog_button.clicked.connect(self.open_files)
         self.src_dir_label = QtWidgets.QLabel("No Directory Selected")
+        self.src_dir_label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
         self.files_count_label = QtWidgets.QLabel("0 Files")
+        self.files_count_label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
         self.size_label = QtWidgets.QLabel("0 GB")
+        self.size_label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
         # Destination Dir
         self.dst_vbar = QtWidgets.QFrame()
         self.dst_vbar.setFrameShape(QtWidgets.QFrame.VLine)
@@ -398,6 +401,7 @@ class MainWidget(QtWidgets.QWidget):
         self.dst_dir_dialog_button = QtWidgets.QPushButton("Choose Destination Folder")
         self.dst_dir_dialog_button.clicked.connect(self.select_dst_folder)
         self.dst_dir_label = QtWidgets.QLabel("No Directory Selected")
+        self.dst_dir_label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
         self.dst_dir_information_label = QtWidgets.QLabel("Select a destination folder to view storage details")
         # Drive buttons
         self.select_all_button = QtWidgets.QPushButton("Select All Drives")
