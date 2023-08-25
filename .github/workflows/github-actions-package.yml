@@ -30,7 +30,7 @@ jobs:
           name: gemino-macOS
           path: target/gemino.dmg
   build-ubuntu:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         python-version: ["3.6"]
@@ -55,7 +55,7 @@ jobs:
         run: |
           ls -lah target
   build-windows:
-    runs-on: windows-latest
+    runs-on: windows-2019
     strategy:
       matrix:
         python-version: ["3.6"]
