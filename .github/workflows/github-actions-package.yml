@@ -81,6 +81,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install wheel
           pip install https://static.servida.ch/software/python/lz4/lz4-3.1.10-cp36-cp36m-win_amd64.whl
+          pip install https://static.servida.ch/software/python/fastchunking/fastchunking-0.0.3-cp36-cp36m-win_amd64.whl
           pip install -r requirements/base.txt
       - name: Package app with fbs
         run: |
