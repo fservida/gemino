@@ -1,5 +1,5 @@
 # gemino
-[![Build Status](https://travis-ci.com/fservida/gemino.svg?branch=master)](https://travis-ci.com/fservida/gemino)
+[![Build Status](https://github.com/fservida/gemino/actions/workflows/github-actions-package.yml/badge.svg)](https://github.com/fservida/gemino/actions/workflows/github-actions-package.yml)
 ## gemino file duplicator
 
 Gemino is a file duplicator with advanced capabilities useful for copying forensics datasets and doing logical acquisitions.
