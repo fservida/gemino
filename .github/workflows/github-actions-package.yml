@@ -89,6 +89,10 @@ jobs:
       - name: Package installer with fbs
         run: |
           fbs installer
-      - name: List target files
-        run: |
-          dir target
+      - name: 'Upload Artifact'
+        uses: actions/upload-artifact@v3
+        with:
+          name: geminoSetup.exe
+          path: target/geminoSetup.exe
+          
+      
