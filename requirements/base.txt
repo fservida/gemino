@@ -1,3 +1,4 @@
 PySide2==5.12.0
-fbs==0.6.2
+fbs==1.2.1
 PyInstaller==3.4
+pyaff4 @ git+https://github.com/fservida/pyaff4@9090d979c07eb029254ce3f54ecd85788102dfab
