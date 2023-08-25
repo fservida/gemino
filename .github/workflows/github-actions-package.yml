@@ -18,16 +18,21 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements/base.txt
-      - name: Package app with fbs
+      - name: Package app with fbs with fixes for pyinstaller issues
         run: |
+          PACKAGE_PATH=$(pip show shiboken2|grep Location:|cut -d " " -f2)
+          cp $PACKAGE_PATH/shiboken2/libshiboken2.abi3.5.12.dylib $PACKAGE_PATH/PySide2/
           fbs freeze
+          mkdir target/gemino.app/Contents/MacOS/lib2to3
+          cp $PACKAGE_PATH/../lib2to3/*.txt target/gemino.app/Contents/MacOS/lib2to3
+          cp $PACKAGE_PATH/../lib2to3/*.pickle target/gemino.app/Contents/MacOS/lib2to3
       - name: Package installer with fbs
         run: |
           fbs installer
       - name: 'Upload Artifact'
         uses: actions/upload-artifact@v3
         with:
-          name: gemino-macOS
+          name: gemino.dmg
           path: target/gemino.dmg
   build-ubuntu:
     runs-on: ubuntu-20.04
@@ -54,9 +59,11 @@ jobs:
       - name: Package installer with fbs
         run: |
           fbs installer
-      - name: List target files
-        run: |
-          ls -lah target
+      - name: 'Upload Artifact'
+        uses: actions/upload-artifact@v3
+        with:
+          name: gemino.deb
+          path: target/gemino.deb
   build-windows:
     runs-on: windows-2019
     strategy:
