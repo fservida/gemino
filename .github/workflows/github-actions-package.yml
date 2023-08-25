@@ -45,7 +45,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt -y install gem
-          gem install fpm
+          sudo gem install fpm
           python -m pip install --upgrade pip
           pip install -r requirements/base.txt
       - name: Package app with fbs
