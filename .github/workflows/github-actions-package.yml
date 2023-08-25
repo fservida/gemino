@@ -1,5 +1,5 @@
-name: Package with Github Actions
-run-name: ${{ github.actor }} is packaging on Github Actions
+name: Packaging Gemino
+run-name: ${{ github.actor }} is packaging Gemino
 on: [push]
 jobs:
   build-macos:
@@ -80,6 +80,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install wheel
+          pip install git+https://github.com/python-lz4/python-lz4@491050bec30f052205158996aa5f247ca106392f
           pip install -r requirements/base.txt
       - name: Package app with fbs
         run: |
