@@ -603,24 +603,39 @@ class MainWidget(QtWidgets.QWidget):
             progress.exec_()
             # copy_files(self.source_dir, dst_volumes, hash_algos)
         else:
-            error_box("No Writable/Valid Drive Selected!")
+            error_box("No writable/valid drive selected or all destinations have been skipped!")
 
     # TODO - If AFF4 -> Check if same filename exists and not if folder is empty.
     def check_existing(self, volumes):
-        base_path = self.src_base_path
-        for i in range(len(volumes)):
-            dst_path = os.path.join(volumes[i], base_path)
-            if os.path.exists(dst_path) and os.listdir(dst_path):
-                # Folder not empty alert user
-                print(f"{dst_path} not empty!")
-                if self.confirm_overwrite(dst_path):
-                    print("User chose to overwrite")
-                    pass
-                else:
-                    # If user cancels:
-                    print("User chose to skip folder, remove from destinations.")
-                    volumes.pop(i)
-        return volumes
+        if not self.aff4_checkbox.isChecked():
+            base_path = self.src_base_path
+            for i in range(len(volumes)):
+                dst_path = os.path.join(volumes[i], base_path)
+                if os.path.exists(dst_path) and os.listdir(dst_path):
+                    # Folder not empty alert user
+                    print(f"{dst_path} not empty!")
+                    if self.confirm_overwrite(dst_path):
+                        print("User chose to overwrite")
+                        pass
+                    else:
+                        # If user cancels:
+                        print("User chose to skip folder, remove from destinations.")
+                        volumes.pop(i)
+            return volumes
+        else:
+            for i in range(len(volumes)):
+                dst_path = os.path.join(volumes[i], self.aff_filename)
+                if os.path.exists(dst_path):
+                    # Folder not empty alert user
+                    print(f"{dst_path} already exists!")
+                    if self.confirm_overwrite(dst_path):
+                        print("User chose to overwrite")
+                        pass
+                    else:
+                        # If user cancels:
+                        print("User chose to skip container, remove from destinations.")
+                        volumes.pop(i)
+            return volumes
 
     @property
     def src_base_path(self):
@@ -774,9 +789,13 @@ class MainWidget(QtWidgets.QWidget):
         }
 
     def confirm_overwrite(self, path):
+        if self.aff4_checkbox.isChecked():
+            message = f'Container: {path} already exists and will be overwritten.\n\nDo you want to continue?'
+        else:
+            message = f'Directory: {path} is not empty.\nData contained may be overwritten without additional confirmation.\n\nDo you want to continue?'
         confirmation = QtWidgets.QMessageBox()
         choice = confirmation.question(self, 'Confirm Overwrite',
-                                       f'Directory: {path} is not empty.\nData contained may be overwritten without additional confirmation.\n\nDo you want to continue?',
+                                       message,
                                        QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No)
         if choice == QtWidgets.QMessageBox.Yes:
             return True
