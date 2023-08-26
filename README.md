@@ -32,6 +32,16 @@ Reading the source data only once for the entire process (copy and hashing) allo
 
 ![screen_done.png](screen_done.png)
 
+### AFF4-L Support
+
+1. The AFF4-L containers created with Gemino are compliant with standard published in [https://www.sciencedirect.com/science/article/pii/S1742287619301653](https://www.sciencedirect.com/science/article/pii/S1742287619301653)
+2. The containers can be read and verified by pyaff tool
+4. AFF4-L support is still considered beta level because of the low compatibility by major forensic solutions of AFF4-L format.
+5. To reduce impact due to point 4 the containers are created using only ZipSegments independently of file size to improve compatibility. If the tool does not support AFF4-L standard, or fails to process the data, the container can still be imported as ZIP archive.
+
+    -   When imported this way the drawback will be inability to verify or process the metadata. Empty folders will also not be imported if using this workaround as they are not stored in the zip archive but only in the metadata file for AFF4-L.
+    -   Containers with ZipSegments of arbitrary file sizes might be less performant as the whole segment needs to be loaded in memory when doing random seek, this approach was still chosen to ensure AFF4-L images created with Gemino have the widest possible compatibility with existing tools.
+
 ### Drawbacks
 #### Copy Performance
 Do not mix destination devices with different I/O - write speeds! The overall speed will be that of the slowest device!
