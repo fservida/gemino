@@ -587,9 +587,9 @@ class MainWidget(QtWidgets.QWidget):
             return
 
         if self.aff4_checkbox.isChecked():
-            error_box("Warning - AFF4 Support is Beta Level\n\n"
-                      "Might Not Copy Correctly\n"
-                      "Use with caution and report all bugs especially with non latin alphabets.")
+            error_box("AFF4 Support is Beta Level\n\n"
+                      "Format is compliant with standard but might not be recognized by all forensic tools.\n"
+                      "If your tool does not support AFF4-L or is unable to process, import the container as a zip file.")
 
         dst_volumes = self.check_existing(dst_volumes)
         dst_volumes = self.normalize_paths(dst_volumes)
