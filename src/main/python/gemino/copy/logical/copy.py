@@ -303,7 +303,7 @@ class CopyThread(QThread):
         container_path = path.join(destination, self.base_path)
         with data_store.MemoryDataStore() as resolver:
             container_urn = rdfvalue.URN.FromFileName(container_path)
-            with container.Container.createURN(resolver, container_urn, encryption=False, zip_based=True) as volume:
+            with container.Container.createURN(resolver, container_urn, encryption=False, zip_based=True, compression_method=lexicon.AFF4_IMAGE_COMPRESSION_STORED) as volume:
                 hashers_algos = []
                 if "md5" in hashes:
                     hashers_algos.append(lexicon.HASH_MD5)
