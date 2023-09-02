@@ -707,13 +707,23 @@ class MainWidget(QtWidgets.QWidget):
         self.aff4_filename.setDisabled(not self.aff4_checkbox.isChecked())
 
     def open_files(self):
-        self.source_dir = self.src_dir_dialog.getExistingDirectory(self, "Choose Directory to Copy")
+        directory = ''
+        try:
+            directory = QtCore.QStandardPaths.standardLocations(QtCore.QStandardPaths.HomeLocation)[0]
+        except:
+            pass
+        self.source_dir = self.src_dir_dialog.getExistingDirectory(self, "Choose Directory to Copy", dir=directory)
         self.src_dir_label.setText(self.source_dir if self.source_dir else "No Directory Selected")
         if self.source_dir:
             self.get_size()
 
     def select_dst_folder(self):
-        self.dst_folder = self.dst_dir_dialog.getExistingDirectory(self, "Choose Directory to Copy")
+        directory = ''
+        try:
+            directory = QtCore.QStandardPaths.standardLocations(QtCore.QStandardPaths.HomeLocation)[0]
+        except:
+            pass
+        self.dst_folder = self.dst_dir_dialog.getExistingDirectory(self, "Choose Directory to Copy", dir=directory)
         self.dst_dir_label.setText(self.dst_folder if self.dst_folder else "No Directory Selected")
         if not self.dst_folder:
             self.dst_dir_information_label.setText("Select a destination folder to view storage details")
