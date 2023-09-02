@@ -14,7 +14,7 @@ from pyaff4 import hashes as aff4_hashes
 from pyaff4 import data_store, linear_hasher
 
 from ..utils import CopyBuffer
-from .aff4 import LinearVerificationListener, trimVolume
+from .aff4 import LinearVerificationListener, trimVolume, ProgressContextListener
 
 
 # TODO - Split CopyThread in Two Subclasses for basic and aff4 (and maybe others).
@@ -373,7 +373,15 @@ class CopyThread(QThread):
                             with open(src_file_path, "rb", buffering=0) as src_file:
                                 file_hashes = {hash_algo: "" for hash_algo in hashes}
                                 hasher = linear_hasher.StreamHasher(src_file, hashers_algos)
-                                urn = volume.writeLogicalStream(pathname, hasher, fsmeta.length, allow_large_zipsegments=True)
+                                progress = ProgressContextListener()
+                                progress.start = copied_size
+                                progress.destinations = self.destinations
+                                progress.processed_files = filecount
+                                progress.current_file = filename
+                                progress.copy_progress = self.copy_progress
+                                progress.status = 'copy'
+                                urn = volume.writeLogicalStream(pathname, hasher, fsmeta.length,
+                                                                allow_large_zipsegments=True, progress=progress)
                                 fsmeta.urn = urn
                                 fsmeta.store(resolver)
                                 for h in hasher.hashes:
@@ -436,13 +444,22 @@ class CopyThread(QThread):
                             # Update Byte Progress
                             filecount += 1
                             filesize = int(image.resolver.store.get(image.urn).get(lexicon.AFF4_STREAM_SIZE))
+                            filename = trimVolume(volume.urn, image.urn)
                             progress[dst] = {'status': 'hashing', 'processed_bytes': hashed_size,
                                              'processed_files': filecount,
-                                             'current_file': trimVolume(volume.urn, image.urn)}
+                                             'current_file': filename}
                             self.copy_progress.emit((1, progress))
 
-                            #print("\t%s <%s>" % (image.name(), trimVolume(volume.urn, image.urn)))
-                            hasher.hash(image)
+                            # Quick Fix, will not work if multiple destinations are implemented
+                            progress_listener = ProgressContextListener()
+                            progress_listener.start = hashed_size
+                            progress_listener.destinations = self.destinations
+                            progress_listener.processed_files = filecount
+                            progress_listener.current_file = filename
+                            progress_listener.copy_progress = self.copy_progress
+                            progress_listener.status = 'hashing'
+
+                            hasher.hash(image, progress=progress_listener)
                             hashed_size += filesize
 
                         if verification_listener.failed:

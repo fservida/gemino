@@ -24,7 +24,7 @@ class VolumeProgress(QtWidgets.QWidget):
         # Init Data
         self.__status = 'idle'
         self.__verified = 0
-        self.__current_file = 'test_file'
+        self.__current_file = '-'
         self.__processed_files = 0
         self.__total_files = total_files
         self.__processed_bytes = 0

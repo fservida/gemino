@@ -1,6 +1,32 @@
 # Utils specific to AFF4 container creation, and placeholder for subclass for AFF4 logical imaging.
 
 from pyaff4 import utils, rdfvalue, escaping, lexicon, zip
+from pyaff4.aff4 import ProgressContext
+from past.utils import old_div
+
+
+class ProgressContextListener(ProgressContext):
+
+    copy_progress = None
+    destinations = None
+    processed_files = None
+    current_file = None
+    status = ''
+
+    def __init__(self, *args, **kwargs):
+        super(ProgressContext, self).__init__( *args, **kwargs)
+
+    def Report(self, readptr):
+        readptr = readptr + self.start
+        now = self.now()
+        if now > self.last_time + old_div(1000000, 4):
+            self.last_time = now
+            self.last_offset = readptr
+            self.copy_progress.emit(
+                (0, {dst: {'status': self.status, 'processed_bytes': readptr, 'processed_files': self.processed_files,
+                           'current_file': self.current_file}
+                     for dst in
+                     self.destinations}))
 
 
 class LinearVerificationListener(object):

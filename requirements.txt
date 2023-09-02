@@ -16,7 +16,7 @@ lz4==3.1.10
 macholib==1.16.2
 passlib==1.7.4
 pefile==2023.2.7
-pyaff4 @ git+https://github.com/fservida/pyaff4@30226afb206f9237aa8fb7d703a3332fac12c8a6
+pyaff4 @ git+https://github.com/fservida/pyaff4@8d6b459882c808c6797beaefbb030e561594ac7a
 PyBindGen==0.22.1
 pycparser==2.21
 pycryptodome==3.18.0
