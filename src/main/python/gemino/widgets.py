@@ -341,7 +341,7 @@ class MainWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
 
-        self.settings = QtCore.QSettings("ch.unil.esc-cyber", "Gemino")
+        self.settings = QtCore.QSettings("ch.francescoservida", "Gemino")
 
         # App default configuration via file
         # Ini files with settings that will be imposed and will not be changeable by user.
@@ -833,7 +833,7 @@ class MainWindow(QtWidgets.QMainWindow):
         message.setIcon(QtWidgets.QMessageBox.Information)
         message.setText("gemino")
         message.setInformativeText(
-            "gemino\n\nForensic logical imager and file duplicator\n\nv{} - May 2023\n\nDeveloped with ❤️ by Francesco Servida during the work at:\n - University of Lausanne\n - United Nations Investigative Team for Accountability of crimes committed by Da’esh/ISIL (UNITAD)\n\nLicensed under GPLv3\nhttps://opensource.org/licenses/GPL-3.0".format(
+            "gemino\n\nForensic logical imager and file duplicator\n\nv{} - May 2023\n\nDeveloped with ❤️ by Francesco Servida beside work at:\n - University of Lausanne\n - United Nations Investigative Team for Accountability of crimes committed by Da’esh/ISIL (UNITAD)\n\nLicensed under GPLv3\nhttps://opensource.org/licenses/GPL-3.0".format(
                 self.version))
         message.setWindowTitle("About")
         message.setStandardButtons(QtWidgets.QMessageBox.Ok)
