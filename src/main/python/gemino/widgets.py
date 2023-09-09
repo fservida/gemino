@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import webbrowser
 import os
 import os.path as path
+from pathlib import Path
 
 from .utils import SizeCalcThread
 from .copy.logical.copy import CopyThread
@@ -337,11 +338,22 @@ def error_box(text, subtitle="", details=""):
     message.exec_()
 
 
+def is_portable():
+    macos_path = r"/Applications/gemino.app"
+    windows_path = r"C:\Program Files (x86)\gemino"
+    application_path = Path(QtCore.QCoreApplication.applicationDirPath())
+    if macos_path in application_path.parents or windows_path in application_path.parents:
+        return False
+    return True
+
+
 class MainWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
 
-        self.settings = QtCore.QSettings("ch.francescoservida", "Gemino")
+        # Do not use persistent settings if app is portable to reduce system modifications on copies from live systems
+        if not is_portable():
+            self.settings = QtCore.QSettings("ch.francescoservida", "Gemino")
 
         # App default configuration via file
         # Ini files with settings that will be imposed and will not be changeable by user.
@@ -564,11 +576,13 @@ class MainWidget(QtWidgets.QWidget):
         if not hasattr(self, 'source_dir') or not self.source_dir:
             error_box("No Directory Selected")
             return
+
         # Save hashing algorithms settings
-        hash_algos = self.hashing_algos.buttons()
-        for hash_algo in hash_algos:
-            self.settings.setValue(hash_algo.text(), hash_algo.isChecked())
-        self.settings.sync()
+        if not is_portable():
+            hash_algos = self.hashing_algos.buttons()
+            for hash_algo in hash_algos:
+                self.settings.setValue(hash_algo.text(), hash_algo.isChecked())
+            self.settings.sync()
 
         # Launch Copy
         hash_algos = [hash_algo.text() for hash_algo in self.hashing_algos.buttons() if hash_algo.isChecked()]
@@ -675,7 +689,7 @@ class MainWidget(QtWidgets.QWidget):
         if self.managed_algorithms is not None:
             for hash_algo in hash_algos:
                 hash_algos[hash_algo] = hash_algo in self.managed_algorithms
-        else:
+        elif not is_portable():
             for hash_algo in hash_algos:
                 stored_setting = self.settings.value(hash_algo)
                 if isinstance(stored_setting, str):
@@ -684,6 +698,10 @@ class MainWidget(QtWidgets.QWidget):
                 else:
                     # macOS, returns a Boolean
                     hash_algos[hash_algo] = bool(stored_setting) if stored_setting is not None else True
+        else:
+            # By default use only MD5
+            hash_algos = {'md5': True, 'sha1': False, 'sha256': False}
+
         self.hash_label = QtWidgets.QLabel("Hashing Algorithms: ")
         self.md5_checkbox = QtWidgets.QCheckBox("md5", self)
         self.md5_checkbox.setChecked(hash_algos["md5"])
