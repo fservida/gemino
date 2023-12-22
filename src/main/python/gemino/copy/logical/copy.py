@@ -6,6 +6,7 @@ import hashlib
 from datetime import datetime
 import shutil
 import uuid
+from copy import deepcopy
 
 from pyaff4 import container
 from pyaff4 import lexicon, logical, escaping
@@ -13,7 +14,7 @@ from pyaff4 import rdfvalue, utils
 from pyaff4 import hashes as aff4_hashes
 from pyaff4 import data_store, linear_hasher
 
-from ..utils import CopyBuffer
+from ..utils import CopyBuffer, HashBuffer
 from .aff4 import LinearVerificationListener, trimVolume, ProgressContextListener
 
 
@@ -133,21 +134,29 @@ class CopyThread(QThread):
 
                             threads = []
 
-                            for hash_algo, hash_buffer in file_hashes.items():
-                                # Not threaded because CPU bound
-                                # Improving performance would need multiprocesses, we'll deal with it another time
-                                hash_buffer.update(data)
+                            # Create a full in-memory copy of the buffer read to avoid issues with concurrency
+                            # when reading the new stream as the same time the old is being written.
+                            # Not sure if really needed but performance impact is negligible and reduces risks.
+                            data_current = deepcopy(data)
 
-                            # Forbid thread termination while we have active buffercopy threads
-                            # If not done, the threads will return to a non existing thread and crash the application
+                            # Forbid thread termination while we have active child threads
+                            # If not done, the threads will return to a non-existing thread and crash the application
                             # (I think)
                             self.setTerminationEnabled(False)
 
+                            for hash_algo, hash_buffer in file_hashes.items():
+                                thread = HashBuffer(hash_buffer, data_current)
+                                thread.start()
+                                threads.append(thread)
+
                             for dst, dst_file in dst_file_ptrs.items():
-                                thread = CopyBuffer(data, dst_file)  # Threaded Version
+                                thread = CopyBuffer(data_current, dst_file)  # Threaded Version
                                 thread.start()  # Threaded Version
                                 threads.append(thread)  # Threaded Version
-                                # dst_file.write(data)               # Non Threaded Version
+
+                            copied_size += len(data_current)
+
+                            data = src_file.read(buffer_size)
 
                             for thread in threads:
                                 thread.join()
@@ -155,12 +164,10 @@ class CopyThread(QThread):
                             # All the spawned threads have exited, allow the termination of this thread again
                             self.setTerminationEnabled(True)
 
-                            copied_size += len(data)
                             self.copy_progress.emit(
                                 (0, {dst: {'processed_bytes': copied_size, 'processed_files': filecount,
                                            'status': 'copy', 'current_file': filename} for dst in
                                      self.destinations}))
-                            data = src_file.read(buffer_size)
 
                         # Close open files (src auto closes)
 
@@ -240,17 +247,34 @@ class CopyThread(QThread):
 
                             data = file.read(buffer_size)
                             while data:
+                                threads = []
+
+                                data_current = deepcopy(data)
+
+                                # Forbid thread termination while we have active child threads
+                                # If not done, the threads will return to a non-existing thread and crash the application
+                                # (I think)
+                                self.setTerminationEnabled(False)
+
                                 for hash_algo, hash_buffer in dst_file_hashes.items():
-                                    # Not threaded because CPU bound
-                                    # Improving performance would need multiprocesses, we'll deal with it another time
-                                    hash_buffer.update(data)
+                                    thread = HashBuffer(hash_buffer, data_current)
+                                    thread.start()
+                                    threads.append(thread)
+
                                 hashed_size += len(data)
+
+                                data = file.read(buffer_size)
+
+                                for thread in threads:
+                                    thread.join()
+
+                                # All the spawned threads have exited, allow the termination of this thread again
+                                self.setTerminationEnabled(True)
+
                                 # Update Byte Progress
                                 progress[dst] = {'status': 'hashing', 'processed_bytes': hashed_size,
                                                  'processed_files': filecount, 'current_file': filename}
                                 self.copy_progress.emit((1, progress))
-
-                                data = file.read(buffer_size)
 
                             for hash_algo, hash_buffer in dst_file_hashes.items():
                                 dst_file_hashes[hash_algo] = hash_buffer.hexdigest()
@@ -496,7 +520,7 @@ class CopyThread(QThread):
                 report_file_path = path.join(dst, f'{base_path}_copy_report.txt')
                 with open(report_file_path, "w", encoding='utf-8') as report_file:
                     report_file.write(f"# Gemino Copy Report\n")
-                    report_file.write(f"# Gemino v2.6.2\n")
+                    report_file.write(f"# Gemino v2.7.0\n")
                     report_file.write(f"#####################################################\n\n")
 
                     report_file.write(f"################## Case Metadata ####################\n")
