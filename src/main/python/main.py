@@ -1,21 +1,16 @@
-from fbs_runtime.application_context.PySide2 import ApplicationContext
+from PySide2.QtWidgets import QApplication
 
 import sys
 
 from gemino.widgets import MainWindow
 
-
-class AppContext(ApplicationContext):  # 1. Subclass ApplicationContext
-    def run(self):  # 2. Implement run()
-        version = self.build_settings['version']
-        window = MainWindow(version)
-        window.setWindowTitle("gemino v" + version)
-        window.resize(800, 600)
-        window.show()
-        return self.app.exec_()  # 3. End run() with this line
-
+VERSION = "2.7.0"
 
 if __name__ == '__main__':
-    appctxt = AppContext()  # 4. Instantiate the subclass
-    exit_code = appctxt.run()  # 5. Invoke run()
+    app = QApplication(sys.argv)
+    window = MainWindow(VERSION)
+    window.setWindowTitle("gemino v" + VERSION)
+    window.resize(800, 600)
+    window.show()
+    exit_code = app.exec_()
     sys.exit(exit_code)

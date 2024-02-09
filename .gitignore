@@ -166,10 +166,11 @@ fabric.properties
 ########## macOS
 .DS_Store
 
-########## FBS
-target
-src/build/settings/secret.json
-src/sign/linux/private-key.gpg
+########## Pyinstaller
+/build/
+
+########## DMG Creation
+/create-dmg/
 
 ########## Other
 test_copy.py
