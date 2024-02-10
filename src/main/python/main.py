@@ -4,7 +4,7 @@ import sys
 
 from gemino.widgets import MainWindow
 
-VERSION = "2.7.0"
+VERSION = "2.8.0"
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
