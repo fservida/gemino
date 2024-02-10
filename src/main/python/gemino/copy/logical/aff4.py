@@ -1,6 +1,6 @@
 # Utils specific to AFF4 container creation, and placeholder for subclass for AFF4 logical imaging.
 
-from pyaff4 import utils, rdfvalue, escaping, lexicon, zip
+from pyaff4 import utils, rdfvalue, escaping, lexicon, zip, container
 from pyaff4.aff4 import ProgressContext
 from past.utils import old_div
 
@@ -12,6 +12,7 @@ class ProgressContextListener(ProgressContext):
     processed_files = None
     current_file = None
     status = ''
+    main_status = 0
 
     def __init__(self, *args, **kwargs):
         super(ProgressContext, self).__init__( *args, **kwargs)
@@ -23,7 +24,7 @@ class ProgressContextListener(ProgressContext):
             self.last_time = now
             self.last_offset = readptr
             self.copy_progress.emit(
-                (0, {dst: {'status': self.status, 'processed_bytes': readptr, 'processed_files': self.processed_files,
+                (self.main_status, {dst: {'status': self.status, 'processed_bytes': readptr, 'processed_files': self.processed_files,
                            'current_file': self.current_file}
                      for dst in
                      self.destinations}))
@@ -61,3 +62,22 @@ def trimVolume(volume, image):
     if imagestring.startswith("//"):
         imagestring = imagestring[2:]
     return imagestring
+
+
+def get_metadata(src):
+    """
+    :return: file number, total size (bytes)
+    """
+    filecount = 0
+    total_size = 0
+
+    with container.Container.openURNtoContainer(rdfvalue.URN.FromFileName(src)) as volume:
+
+        for image in volume.images():
+            # Each image is a file in the container.
+            # Update Byte Progress
+            filecount += 1
+            filesize = int(image.resolver.store.get(image.urn).get(lexicon.AFF4_STREAM_SIZE))
+            total_size += filesize
+    
+    return filecount, total_size

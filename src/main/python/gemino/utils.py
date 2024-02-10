@@ -1,6 +1,6 @@
 # Generic utils for gemino's
 
-from PySide2.QtCore import QThread, Signal
+from PySide6.QtCore import QThread, Signal
 import os
 import os.path as path
 

@@ -1,3 +1,3 @@
-PySide2
+PySide6
 PyInstaller
 pyaff4 @ git+https://github.com/fservida/pyaff4@8bb7f70beea488d292e5980612fedba50b0f360e

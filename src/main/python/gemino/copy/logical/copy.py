@@ -1,4 +1,4 @@
-from PySide2.QtCore import QThread, Signal
+from PySide6.QtCore import QThread, Signal
 
 import os
 import os.path as path
@@ -482,6 +482,7 @@ class CopyThread(QThread):
                             progress_listener.current_file = filename
                             progress_listener.copy_progress = self.copy_progress
                             progress_listener.status = 'hashing'
+                            progress_listener.main_status = 1
 
                             hasher.hash(image, progress=progress_listener)
                             hashed_size += filesize
@@ -543,3 +544,75 @@ class CopyThread(QThread):
                 print(f"Error writing to folder: {error}")
                 raise
         return start_time
+    
+
+class VerifyThread(QThread):
+    copy_progress = Signal(object)
+
+    def __init__(self, src: str):
+        super().__init__()
+        self.src = src
+
+    def run(self):
+        try:
+            self.verify_aff4(self.src)
+        except Exception as error:
+            # TODO Implement Error handling
+            raise
+            self.copy_progress.emit((-1, error))
+
+    def verify_aff4(self, src: str):
+
+        print("Verifying integrity of AFF4-L File")
+
+        progress = {src: {'status': 'idle', 'processed_bytes': 0, 'processed_files': 0, 'current_file': ''}}
+        
+        self.copy_progress.emit((4, progress))
+
+        hashed_size = 0
+        filecount = 0
+        with container.Container.openURNtoContainer(rdfvalue.URN.FromFileName(src)) as volume:
+            resolver = volume.resolver
+            verification_listener = LinearVerificationListener(volume.urn)
+            hasher = linear_hasher.LinearHasher2(resolver, verification_listener)
+
+            for image in volume.images():
+                # Each image is a file in the container.
+                # Update Byte Progress
+                filecount += 1
+                filesize = int(image.resolver.store.get(image.urn).get(lexicon.AFF4_STREAM_SIZE))
+                filename = trimVolume(volume.urn, image.urn)
+                progress[src] = {'status': 'hashing', 'processed_bytes': hashed_size,
+                                    'processed_files': filecount,
+                                    'current_file': filename}
+                self.copy_progress.emit((4, progress))
+
+                # Quick Fix, will not work if multiple destinations are implemented
+                progress_listener = ProgressContextListener()
+                progress_listener.start = hashed_size
+                progress_listener.destinations = [self.src]  # When verifying a container, the container source has the destination role in normal progress.
+                progress_listener.processed_files = filecount
+                progress_listener.current_file = filename
+                progress_listener.copy_progress = self.copy_progress
+                progress_listener.status = 'hashing'
+                progress_listener.main_status = 4
+
+                hasher.hash(image, progress=progress_listener)
+                hashed_size += filesize
+
+            if verification_listener.failed:
+                failed_files = len(verification_listener.failed)
+                progress[src] = {'status': 'error_hash', 'processed_bytes': hashed_size,
+                                    'processed_files': filecount, 'current_file': f'Verification Failed for {failed_files} files'}
+                # TODO display scroll text window with failure details
+                self.copy_progress.emit((4, progress))
+
+            if not verification_listener.failed:
+                # Signal the end with no errors of the hash verification for the current volume
+                progress[src] = {'status': 'done', 'processed_bytes': hashed_size,
+                                    'processed_files': filecount, 'current_file': ''}
+                self.copy_progress.emit((4, progress))
+
+        # Done
+        print("Done!")
+        self.copy_progress.emit((5, {}))

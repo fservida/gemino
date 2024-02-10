@@ -1,4 +1,4 @@
-from PySide2 import QtWidgets, QtCore, QtGui
+from PySide6 import QtWidgets, QtCore, QtGui
 from datetime import datetime, timedelta
 import webbrowser
 import os
@@ -6,7 +6,8 @@ import os.path as path
 from pathlib import Path
 
 from .utils import SizeCalcThread
-from .copy.logical.copy import CopyThread
+from .copy.logical.copy import CopyThread, VerifyThread
+from .copy.logical.aff4 import get_metadata
 
 class VolumeProgress(QtWidgets.QWidget):
     __STATUSES = {
@@ -19,7 +20,7 @@ class VolumeProgress(QtWidgets.QWidget):
         'error_io': 'Lost Communication to Device'
     }
 
-    def __init__(self, volume_name, total_bytes, total_files, aff4_filename: str = ""):
+    def __init__(self, volume_name, total_bytes, total_files, aff4_filename: str = "", aff4_verify: bool = False):
         super().__init__()
 
         # Init Data
@@ -36,6 +37,7 @@ class VolumeProgress(QtWidgets.QWidget):
         self.__speed = 0
         self.__eta = timedelta(seconds=0)
         self.__aff4_filename = aff4_filename
+        self.__aff4_verify = aff4_verify
 
         # UI
         self.__setup_ui()
@@ -55,7 +57,10 @@ class VolumeProgress(QtWidgets.QWidget):
         self.__eta_label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
         self.__file_progress_label = QtWidgets.QLabel()
         self.__file_progress_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        self.__open_folder_button = QtWidgets.QPushButton('Open Destination')
+        if self.__aff4_verify:
+            self.__open_folder_button = QtWidgets.QPushButton('Open Container Folder')
+        else:
+            self.__open_folder_button = QtWidgets.QPushButton('Open Destination')
         self.__open_folder_button.clicked.connect(self.__open_folder)
 
         self.__layout_container = QtWidgets.QVBoxLayout()
@@ -84,7 +89,7 @@ class VolumeProgress(QtWidgets.QWidget):
         else:
             self.__volume_label.setText(self.__volume_name)
         self.__current_status_label.setText(VolumeProgress.__STATUSES[self.__status])
-        self.__current_file_label.setText(self.__current_file)
+        self.__current_file_label.setText(self.current_file_truncated)
         self.__size_progress_label.setText(
             "{:.2f} / {:.2f} GB".format(self.__processed_bytes / 10 ** 9, self.__total_bytes / 10 ** 9))
         self.__file_progress_label.setText("{} / {} files".format(self.__processed_files, self.__total_files))
@@ -184,6 +189,14 @@ class VolumeProgress(QtWidgets.QWidget):
         self.__update_ui()
 
     @property
+    def current_file_truncated(self):
+        MAX_LEN = 45
+        if len(self.__current_file) <= MAX_LEN + 3:
+            return self.__current_file
+        else:
+            return f"{self.current_file[:25]}...{self.__current_file[-25:]}"
+    
+    @property
     def volume(self):
         return self.__volume_name
 
@@ -192,25 +205,39 @@ class VolumeProgress(QtWidgets.QWidget):
         raise PermissionError('The Volume associated to a widget cannot be changed after the widget creation!')
 
     def __open_folder(self):
-        webbrowser.open(f'file://{self.__volume_name}')
+        if self.__aff4_verify:
+            webbrowser.open(f'file://{os.path.dirname(self.__volume_name)}')
+        else:
+            webbrowser.open(f'file://{self.__volume_name}')
 
 
 class ProgressWindow(QtWidgets.QDialog):
-    STATUSES = ('copying', 'hashing', 'end', 'cancel')
+    STATUSES = ('copying', 'hashing', 'end', 'cancel', 'verifying', 'end_verify', 'cancel_verify')
     DESCRIPTIONS = {
         'copying': 'Writing to Device, hashing source on the fly',
         'hashing': 'Verifying data written to device',
         'end': 'Copy and verification finished',
         'cancel': 'File copy has been interrupted',
+        'verifying': 'Verifying integrity of container',
+        'end_verify': 'Container verification finished',
+        'cancel_verify': 'Container verification aborted',
     }
 
-    def __init__(self, src: str, dst: list, hash_algos: list, total_files: int, total_bytes: int, metadata: list, aff4: bool, aff4_filename: str):
+    def __init__(self, src: str, dst: list = [], hash_algos: list = [], total_files: int = 0, total_bytes: int = 0, metadata: list = [], aff4: bool = False, aff4_filename: str = "", aff4_verify: bool = False):
         super().__init__()
 
-        self.setWindowTitle("Copy Progress")
+        # Labels
+        if aff4_verify:
+            window_title = "Verification Progress"
+            cancel_label = "Cancel Verification"
+        else:
+            window_title = "Copy Progress"
+            cancel_label = "Cancel Copy"
+
+        self.setWindowTitle(window_title)
         self.status_label = QtWidgets.QLabel("")
 
-        self.cancel_button = QtWidgets.QPushButton("Cancel Copy")
+        self.cancel_button = QtWidgets.QPushButton(cancel_label)
         self.cancel_button.clicked.connect(self.cancel)
 
         self.close_button = QtWidgets.QPushButton("Close")
@@ -223,6 +250,8 @@ class ProgressWindow(QtWidgets.QDialog):
                 self.volume_progresses.append(VolumeProgress(destination, total_bytes, total_files, aff4_filename))
             else:
                 self.volume_progresses.append(VolumeProgress(destination, total_bytes, total_files))
+        if aff4_verify:
+            self.volume_progresses.append(VolumeProgress(src, total_bytes, total_files, aff4_verify=True))
 
         self.layout = QtWidgets.QVBoxLayout()
         self.layout2 = QtWidgets.QHBoxLayout()
@@ -256,9 +285,14 @@ class ProgressWindow(QtWidgets.QDialog):
         self.update_ui()
 
         # Start copying files
-        self.thread = CopyThread(src, dst, hash_algos, total_files, total_bytes, metadata, aff4, aff4_filename)
-        self.thread.copy_progress.connect(self.update_progress, QtCore.Qt.QueuedConnection)
-        self.thread.start()
+        if not aff4_verify:
+            self.thread = CopyThread(src, dst, hash_algos, total_files, total_bytes, metadata, aff4, aff4_filename)
+            self.thread.copy_progress.connect(self.update_progress, QtCore.Qt.QueuedConnection)
+            self.thread.start()
+        else:
+            self.thread = VerifyThread(src)
+            self.thread.copy_progress.connect(self.update_progress, QtCore.Qt.QueuedConnection)
+            self.thread.start()
 
     def update_progress(self, progress: tuple):
         """
@@ -276,7 +310,7 @@ class ProgressWindow(QtWidgets.QDialog):
 
         data = progress[1]
         self.status = ProgressWindow.STATUSES[status]
-        if status != 2:
+        if status not in (2, 5):
             for volume_progress in self.volume_progresses:
                 # update Widget only if information about the volume are present in progress
                 # (eg. parallel or current drive for serial)
@@ -295,7 +329,7 @@ class ProgressWindow(QtWidgets.QDialog):
 
     def update_ui(self):
         self.status_label.setText(self.DESCRIPTIONS[self.status])
-        if self.status == 'end' or self.status == 'cancel':
+        if self.status in ('end', 'cancel', 'end_verify', 'cancel_verify'):
             self.close_button.setHidden(False)
             self.cancel_button.setHidden(True)
 
@@ -335,7 +369,7 @@ def error_box(text, subtitle="", details=""):
     message.setDetailedText(details)
     message.setWindowTitle("Error")
     message.setStandardButtons(QtWidgets.QMessageBox.Ok)
-    message.exec_()
+    message.exec()
 
 
 def is_portable():
@@ -614,7 +648,7 @@ class MainWidget(QtWidgets.QWidget):
                                       self.metadata, self.aff4_checkbox.isChecked(), self.aff_filename)
             progress.setWindowFlags(QtCore.Qt.CustomizeWindowHint)
             progress.setModal(True)
-            progress.exec_()
+            progress.exec()
             # copy_files(self.source_dir, dst_volumes, hash_algos)
         else:
             error_box("No writable/valid drive selected or all destinations have been skipped!")
@@ -841,10 +875,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def initMenu(self):
         bar = self.menuBar()
+
         self.help = bar.addMenu("Help")
-        self.about = QtWidgets.QAction("About")
+        self.about = QtGui.QAction("About")
         self.about.triggered.connect(self.about_box)
         self.help.addAction(self.about)
+
+        self.tools = bar.addMenu("Tools")
+        self.verify_menu = QtGui.QAction("Verify AFF4 Image")
+        self.verify_menu.triggered.connect(self.verify_aff4)
+        self.tools.addAction(self.verify_menu)
 
     def about_box(self):
         message = QtWidgets.QMessageBox()
@@ -855,4 +895,26 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.version))
         message.setWindowTitle("About")
         message.setStandardButtons(QtWidgets.QMessageBox.Ok)
-        message.exec_()
+        message.exec()
+
+    def verify_aff4(self):
+        self.src_container = QtWidgets.QFileDialog(self)
+        self.src_container.setFileMode(QtWidgets.QFileDialog.ExistingFile)
+        directory = ''
+        try:
+            directory = QtCore.QStandardPaths.standardLocations(QtCore.QStandardPaths.HomeLocation)[0]
+        except:
+            pass
+        src_container_path = self.src_container.getOpenFileName(self, "Choose container to verify", dir=directory, filter="AFF4 Images (*.aff4)")[0]
+        if src_container_path:
+            try:
+                total_files, total_size = get_metadata(src_container_path)
+                progress = ProgressWindow(src_container_path, total_files=total_files, total_bytes=total_size, aff4_verify=True)
+                progress.setWindowFlags(QtCore.Qt.CustomizeWindowHint)
+                progress.setModal(True)
+                progress.exec()
+            except Exception as e:
+                print(e)
+                pass
+        else:
+            pass
