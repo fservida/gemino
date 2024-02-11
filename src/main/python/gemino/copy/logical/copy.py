@@ -547,11 +547,13 @@ class CopyThread(QThread):
     
 
 class VerifyThread(QThread):
-    copy_progress = Signal(object)
+    verify_progress = Signal(object)
 
-    def __init__(self, src: str):
+    def __init__(self, src: str, total_files, total_bytes):
         super().__init__()
         self.src = src
+        self.total_files = total_files
+        self.total_bytes = total_bytes
 
     def run(self):
         try:
@@ -559,15 +561,15 @@ class VerifyThread(QThread):
         except Exception as error:
             # TODO Implement Error handling
             raise
-            self.copy_progress.emit((-1, error))
+            self.verify_progress.emit((-1, error))
 
     def verify_aff4(self, src: str):
 
         print("Verifying integrity of AFF4-L File")
 
-        progress = {src: {'status': 'idle', 'processed_bytes': 0, 'processed_files': 0, 'current_file': ''}}
+        progress = {src: {'status': 'idle', 'processed_bytes': 0, 'processed_files': 0, 'current_file': '', 'log': self.initialise_log_text()}}
         
-        self.copy_progress.emit((4, progress))
+        self.verify_progress.emit((4, progress))
 
         hashed_size = 0
         filecount = 0
@@ -585,7 +587,7 @@ class VerifyThread(QThread):
                 progress[src] = {'status': 'hashing', 'processed_bytes': hashed_size,
                                     'processed_files': filecount,
                                     'current_file': filename}
-                self.copy_progress.emit((4, progress))
+                self.verify_progress.emit((4, progress))
 
                 # Quick Fix, will not work if multiple destinations are implemented
                 progress_listener = ProgressContextListener()
@@ -593,7 +595,7 @@ class VerifyThread(QThread):
                 progress_listener.destinations = [self.src]  # When verifying a container, the container source has the destination role in normal progress.
                 progress_listener.processed_files = filecount
                 progress_listener.current_file = filename
-                progress_listener.copy_progress = self.copy_progress
+                progress_listener.copy_progress = self.verify_progress
                 progress_listener.status = 'hashing'
                 progress_listener.main_status = 4
 
@@ -602,17 +604,38 @@ class VerifyThread(QThread):
 
             if verification_listener.failed:
                 failed_files = len(verification_listener.failed)
+                log = f"Verification Failed for {failed_files} files:\n\n"
+                for file in verification_listener.failed:
+                    log += f"Verification failed for file: {trimVolume(volume.urn, file)}\n"                  
+                    for hash_failed in verification_listener.failed[file]:
+                        log += f"\t{hash_failed[0]} Hash Differs - Stored: {hash_failed[1]} - Calculated {hash_failed[2]}\n"
                 progress[src] = {'status': 'error_hash', 'processed_bytes': hashed_size,
-                                    'processed_files': filecount, 'current_file': f'Verification Failed for {failed_files} files'}
-                # TODO display scroll text window with failure details
-                self.copy_progress.emit((4, progress))
+                                    'processed_files': filecount, 'current_file': f'Verification Failed for {failed_files} files', 'log': log}
+
+                self.verify_progress.emit((4, progress))
 
             if not verification_listener.failed:
                 # Signal the end with no errors of the hash verification for the current volume
                 progress[src] = {'status': 'done', 'processed_bytes': hashed_size,
-                                    'processed_files': filecount, 'current_file': ''}
-                self.copy_progress.emit((4, progress))
+                                    'processed_files': filecount, 'current_file': '', 'log': f"Verification successful for {filecount} files\n"}
+                self.verify_progress.emit((4, progress))
 
         # Done
         print("Done!")
-        self.copy_progress.emit((5, {}))
+        self.verify_progress.emit((5, {}))
+
+    def initialise_log_text(self):
+        log = ""
+        log += f"# Gemino Verification Report\n"
+        log += f"# Gemino v2.8.0\n"
+        log += f"#####################################################\n\n"
+
+        log += f"################## Container Information #################\n"
+        log += f"Container: {self.src}\n"
+        log += f"Total Files: {self.total_files}\n"
+        log += f"Size: {self.total_bytes} Bytes (~ {self.total_bytes / 10 ** 9} GB)\n"
+        log += f"\n"
+        log += f"\n"
+        log += f"################## Verification Report ######################\n"
+
+        return log
