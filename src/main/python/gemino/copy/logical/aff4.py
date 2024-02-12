@@ -3,7 +3,7 @@
 from pyaff4 import utils, rdfvalue, escaping, lexicon, zip, container
 from pyaff4.aff4 import ProgressContext
 from past.utils import old_div
-
+from ..utils import ProgressData
 
 class ProgressContextListener(ProgressContext):
 
@@ -24,10 +24,12 @@ class ProgressContextListener(ProgressContext):
             self.last_time = now
             self.last_offset = readptr
             self.copy_progress.emit(
-                (self.main_status, {dst: {'status': self.status, 'processed_bytes': readptr, 'processed_files': self.processed_files,
-                           'current_file': self.current_file}
-                     for dst in
-                     self.destinations}))
+                ProgressData(
+                    status=self.main_status,
+                    payload={dst: {'status': self.status, 'processed_bytes': readptr, 'processed_files': self.processed_files,
+                            'current_file': self.current_file} for dst in self.destinations}
+                )
+            )
 
 
 class LinearVerificationListener(object):

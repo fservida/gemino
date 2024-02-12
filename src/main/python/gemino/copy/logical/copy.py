@@ -6,7 +6,7 @@ import hashlib
 from datetime import datetime
 import shutil
 import uuid
-from copy import deepcopy
+from copy import copy, deepcopy
 
 from pyaff4 import container
 from pyaff4 import lexicon, logical, escaping
@@ -14,7 +14,7 @@ from pyaff4 import rdfvalue, utils
 from pyaff4 import hashes as aff4_hashes
 from pyaff4 import data_store, linear_hasher
 
-from ..utils import CopyBuffer, HashBuffer
+from ..utils import CopyBuffer, HashBuffer, ProgressData
 from .aff4 import LinearVerificationListener, trimVolume, ProgressContextListener
 
 
@@ -56,7 +56,7 @@ class CopyThread(QThread):
                     print(f"Error writing to report: {error}")
                     pass
             raise
-            self.copy_progress.emit((-1, error))
+            self.copy_progress.emit(ProgressData(-1, error))
 
     def copy_folder(self, src: str, destinations: list, hashes: list):
         print("Copying Files...")
@@ -104,7 +104,7 @@ class CopyThread(QThread):
 
                 filecount += 1
 
-                self.copy_progress.emit(
+                self.copy_progress.emit(ProgressData
                     (0, {dst: {'status': 'copy', 'processed_bytes': copied_size, 'processed_files': filecount,
                                'current_file': filename}
                          for dst in
@@ -164,7 +164,7 @@ class CopyThread(QThread):
                             # All the spawned threads have exited, allow the termination of this thread again
                             self.setTerminationEnabled(True)
 
-                            self.copy_progress.emit(
+                            self.copy_progress.emit(ProgressData
                                 (0, {dst: {'processed_bytes': copied_size, 'processed_files': filecount,
                                            'status': 'copy', 'current_file': filename} for dst in
                                      self.destinations}))
@@ -221,7 +221,7 @@ class CopyThread(QThread):
         print("Verifying Hashes...")
         progress = {dst: {'status': 'idle', 'processed_bytes': 0, 'processed_files': filecount, 'current_file': ''} for
                     dst in destinations}
-        self.copy_progress.emit((1, progress))
+        self.copy_progress.emit(ProgressData(1, copy(progress)))
         for dst in destinations:
             hashed_size = 0
             filecount = 0
@@ -237,7 +237,7 @@ class CopyThread(QThread):
                         progress[dst] = {'status': 'hashing', 'processed_bytes': hashed_size,
                                          'processed_files': filecount,
                                          'current_file': ''}
-                        self.copy_progress.emit((1, progress))
+                        self.copy_progress.emit(ProgressData(1, copy(progress)))
                         filepath = path.normpath(path.join(dst, base_path, filename))
                         this_file_error = False
                         with open(filepath, "rb") as file:
@@ -274,7 +274,7 @@ class CopyThread(QThread):
                                 # Update Byte Progress
                                 progress[dst] = {'status': 'hashing', 'processed_bytes': hashed_size,
                                                  'processed_files': filecount, 'current_file': filename}
-                                self.copy_progress.emit((1, progress))
+                                self.copy_progress.emit(ProgressData(1, copy(progress)))
 
                             for hash_algo, hash_buffer in dst_file_hashes.items():
                                 dst_file_hashes[hash_algo] = hash_buffer.hexdigest()
@@ -284,7 +284,7 @@ class CopyThread(QThread):
                                     print("COPY ERROR - %s HASH for %s file DIFFERS!" % (hash_algo, filename))
                                     progress[dst] = {'status': 'error_hash', 'processed_bytes': hashed_size,
                                                      'processed_files': filecount, 'current_file': filename}
-                                    self.copy_progress.emit((1, progress))
+                                    self.copy_progress.emit(ProgressData(1, copy(progress)))
                                     hash_error += 1
                         if this_file_error:
                             report_file.write(f"Verification failed for file: {filename}\n")
@@ -298,7 +298,7 @@ class CopyThread(QThread):
                         progress[dst] = {'status': 'done', 'processed_bytes': hashed_size,
                                          'processed_files': filecount, 'current_file': ''}
                         report_file.write(f"Verification successful for {filecount} files\n")
-                        self.copy_progress.emit((1, progress))
+                        self.copy_progress.emit(ProgressData(1, copy(progress)))
 
             except FileNotFoundError as error:
                 print(f"Error writing to report: {error}")
@@ -306,7 +306,7 @@ class CopyThread(QThread):
 
         # Done
         print("Done!")
-        self.copy_progress.emit((2, {}))
+        self.copy_progress.emit(ProgressData(2, {}))
 
     def copy_aff4(self, src: str, destinations: list, hashes: list):
 
@@ -382,7 +382,7 @@ class CopyThread(QThread):
 
                         filecount += 1
 
-                        self.copy_progress.emit(
+                        self.copy_progress.emit(ProgressData
                             (0, {dst: {'status': 'copy', 'processed_bytes': copied_size, 'processed_files': filecount,
                                        'current_file': filename}
                                  for dst in
@@ -449,7 +449,7 @@ class CopyThread(QThread):
         print("Verifying Hashes...")
         progress = {dst: {'status': 'idle', 'processed_bytes': 0, 'processed_files': filecount, 'current_file': ''} for
                     dst in destinations}
-        self.copy_progress.emit((1, progress))
+        self.copy_progress.emit(ProgressData(1, copy(progress)))
         for dst in destinations:
             hashed_size = 0
             filecount = 0
@@ -472,7 +472,7 @@ class CopyThread(QThread):
                             progress[dst] = {'status': 'hashing', 'processed_bytes': hashed_size,
                                              'processed_files': filecount,
                                              'current_file': filename}
-                            self.copy_progress.emit((1, progress))
+                            self.copy_progress.emit(ProgressData(1, copy(progress)))
 
                             # Quick Fix, will not work if multiple destinations are implemented
                             progress_listener = ProgressContextListener()
@@ -497,14 +497,14 @@ class CopyThread(QThread):
                                     report_file.write(f"\t{hash_failed[0]} Hash Differs - Stored: {hash_failed[1]} - Calculated {hash_failed[2]}\n")
                             report_file.write(f"Verification failed for {failed_files} files.\n")
                             report_file.write(f"Verification successful for {filecount-failed_files} files\n")
-                            self.copy_progress.emit((1, progress))
+                            self.copy_progress.emit(ProgressData(1, copy(progress)))
 
                         if not verification_listener.failed:
                             # Signal the end with no errors of the hash verification for the current volume
                             progress[dst] = {'status': 'done', 'processed_bytes': hashed_size,
                                              'processed_files': filecount, 'current_file': ''}
                             report_file.write(f"Verification successful for {filecount} files\n")
-                            self.copy_progress.emit((1, progress))
+                            self.copy_progress.emit(ProgressData(1, copy(progress)))
 
             except FileNotFoundError as error:
                 print(f"Error writing to report: {error}")
@@ -512,7 +512,7 @@ class CopyThread(QThread):
 
         # Done
         print("Done!")
-        self.copy_progress.emit((2, {}))
+        self.copy_progress.emit(ProgressData(2, {}))
 
     def initialize_log_files(self, destinations, base_path, src):
         start_time = datetime.now()
@@ -561,7 +561,7 @@ class VerifyThread(QThread):
         except Exception as error:
             # TODO Implement Error handling
             raise
-            self.verify_progress.emit((-1, error))
+            self.verify_progress.emit(ProgressData(-1, error))
 
     def verify_aff4(self, src: str):
 
@@ -569,7 +569,7 @@ class VerifyThread(QThread):
 
         progress = {src: {'status': 'idle', 'processed_bytes': 0, 'processed_files': 0, 'current_file': '', 'log': self.initialise_log_text()}}
         
-        self.verify_progress.emit((4, progress))
+        self.verify_progress.emit(ProgressData(4, copy(progress)))
 
         hashed_size = 0
         filecount = 0
@@ -587,7 +587,7 @@ class VerifyThread(QThread):
                 progress[src] = {'status': 'hashing', 'processed_bytes': hashed_size,
                                     'processed_files': filecount,
                                     'current_file': filename}
-                self.verify_progress.emit((4, progress))
+                self.verify_progress.emit(ProgressData(4, copy(progress)))
 
                 # Quick Fix, will not work if multiple destinations are implemented
                 progress_listener = ProgressContextListener()
@@ -612,17 +612,17 @@ class VerifyThread(QThread):
                 progress[src] = {'status': 'error_hash', 'processed_bytes': hashed_size,
                                     'processed_files': filecount, 'current_file': f'Verification Failed for {failed_files} files', 'log': log}
 
-                self.verify_progress.emit((4, progress))
+                self.verify_progress.emit(ProgressData(4, copy(progress)))
 
             if not verification_listener.failed:
                 # Signal the end with no errors of the hash verification for the current volume
                 progress[src] = {'status': 'done', 'processed_bytes': hashed_size,
                                     'processed_files': filecount, 'current_file': '', 'log': f"Verification successful for {filecount} files\n"}
-                self.verify_progress.emit((4, progress))
+                self.verify_progress.emit(ProgressData(4, copy(progress)))
 
         # Done
         print("Done!")
-        self.verify_progress.emit((5, {}))
+        self.verify_progress.emit(ProgressData(5, {}))
 
     def initialise_log_text(self):
         log = ""

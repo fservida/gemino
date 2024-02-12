@@ -6,6 +6,7 @@ import os.path as path
 from pathlib import Path
 
 from .utils import SizeCalcThread
+from .copy.utils import ProgressData
 from .copy.logical.copy import CopyThread, VerifyThread
 from .copy.logical.aff4 import get_metadata
 
@@ -78,6 +79,7 @@ class VolumeProgress(QtWidgets.QWidget):
         self.__aff4_filename = aff4_filename
         self.__aff4_verify = aff4_verify
         self.__log = ""
+        self.__finished = False
 
         # UI
         self.__setup_ui()
@@ -121,8 +123,7 @@ class VolumeProgress(QtWidgets.QWidget):
 
         self.__layout_container.addLayout(self.__layout_first_row)
         self.__layout_container.addWidget(self.__progress_bar)  # "Second Row" Dedicated to Progress Bar
-        if self.__aff4_verify:
-            self.__layout_container.addWidget(self.__show_log_button)
+        self.__layout_container.addWidget(self.__show_log_button)
         self.__layout_container.addLayout(self.__layout_third_row)
         self.__layout_container.addLayout(self.__layout_fourth_row)
 
@@ -137,9 +138,14 @@ class VolumeProgress(QtWidgets.QWidget):
         self.__current_file_label.setText(self.current_file_truncated)
         self.__size_progress_label.setText(
             "{:.2f} / {:.2f} GB".format(self.__processed_bytes / 10 ** 9, self.__total_bytes / 10 ** 9))
-        self.__file_progress_label.setText("{} / {} files".format(self.__processed_files, self.__total_files))
+        self.__file_progress_label.setText("{} / {} files".format(self.__processed_files, self.__total_files))
         self.__speed_label.setText(self.speed)
         self.__eta_label.setText(str(self.__eta).split('.')[0])  # split ETA string on microsecond separator if present
+
+        if self.__aff4_verify:
+            self.__show_log_button.setHidden(not self.__finished)
+        else:
+            self.__show_log_button.setHidden(False)
 
         try:
             current_percent = self.__processed_bytes / self.__total_bytes * 100
@@ -265,6 +271,10 @@ class VolumeProgress(QtWidgets.QWidget):
         self.log_dialog.setWindowModality(QtCore.Qt.ApplicationModal)
         self.log_dialog.open()
 
+    def isFinished(self, finished: bool):
+        self.__finished = finished
+        self.__update_ui()
+
 class ProgressWindow(QtWidgets.QDialog):
     STATUSES = ('copying', 'hashing', 'end', 'cancel', 'verifying', 'end_verify', 'cancel_verify')
     DESCRIPTIONS = {
@@ -350,21 +360,22 @@ class ProgressWindow(QtWidgets.QDialog):
     def start_tasks(self):
         self.thread.start()
 
-    def update_progress(self, progress: ProgressTuple):
+    def update_progress(self, progress: ProgressData):
         """
         :param progress: : (status, data) - status is 0, 1 or 2 (for STATUSES)
                 data: {dst: progress_status, dst2: progress_status, ...}
                 progress_status: {'status': str, 'processed_bytes': int, 'processed_files: int, 'current_file': str}
         :return:
         """
-        status = progress[0]
+
+        status = progress.status
         if status == -1:
             self.status = 'cancel'
             self.update_ui()
-            error_box("Halp! An Error Occurred!", f"Bob is Sad T.T\n\nDetails:\n{progress[1]}")
+            error_box("Halp! An Error Occurred!", f"Bob is Sad T.T\n\nDetails:\n{progress.payload}")
             return
 
-        data = progress[1]
+        data = progress.payload
         self.status = ProgressWindow.STATUSES[status]
         if status not in (2, 5):
             for volume_progress in self.volume_progresses:
@@ -383,6 +394,9 @@ class ProgressWindow(QtWidgets.QDialog):
                     # If volume is not in data dictionary it means and error happened during the copy
                     # and it was removed from the destinations list
                     volume_progress.status = 'error_copy'
+        else:
+            for volume_progress in self.volume_progresses:
+                volume_progress.isFinished(True)
 
         self.update_ui()
 
