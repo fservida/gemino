@@ -676,7 +676,7 @@ class MainWidget(QtWidgets.QWidget):
                         ", ".join(errors))
                 )
                 item.setData(256, volume)
-                item.setTextColor(QtGui.QColor(255, 0, 0))
+                item.setForeground(QtGui.QColor(255, 0, 0))
                 self.volumes_list.addItem(item)
         self.volumes_list.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
 
