@@ -372,7 +372,7 @@ class ProgressWindow(QtWidgets.QDialog):
         if status == -1:
             self.status = 'cancel'
             self.update_ui()
-            error_box("Halp! An Error Occurred!", f"Bob is Sad T.T\n\nDetails:\n{progress.payload}")
+            error_box(self, "Halp! An Error Occurred!", f"Bob is Sad T.T\n\nDetails:\n{progress.payload}")
             return
 
         data = progress.payload
@@ -419,7 +419,7 @@ class ProgressWindow(QtWidgets.QDialog):
                     report_file.write(f"\nUser interrupted copy process at: {datetime.now().isoformat()}")
             except FileNotFoundError as error:
                 print(f"Error writing to report: {error}")
-                error_box('Error Writing to Report', error)
+                error_box(self, 'Error Writing to Report', error)
         self.update_ui()
 
 
@@ -434,14 +434,16 @@ class LoadingDialog(QtWidgets.QDialog):
         self.setLayout(self.layout)
 
 
-def error_box(text, subtitle="", details=""):
-    message = QtWidgets.QMessageBox()  # "Error", "No writable drive selected!"
+def error_box(parent, text, subtitle="", details=""):
+    message = QtWidgets.QMessageBox(parent=parent)  # "Error", "No writable drive selected!"
     message.setIcon(QtWidgets.QMessageBox.Warning)
     message.setText(text)
     message.setInformativeText(subtitle)
     message.setDetailedText(details)
     message.setWindowTitle("Error")
     message.setStandardButtons(QtWidgets.QMessageBox.Ok)
+    message.setModal(True)
+    message.setWindowModality(QtCore.Qt.WindowModal)
     message.exec()
 
 
@@ -681,7 +683,7 @@ class MainWidget(QtWidgets.QWidget):
 
     def start_copy(self):
         if not hasattr(self, 'source_dir') or not self.source_dir:
-            error_box("No Directory Selected")
+            error_box(self, "No Directory Selected")
             return
 
         # Save hashing algorithms settings
@@ -704,11 +706,11 @@ class MainWidget(QtWidgets.QWidget):
         if self.aff4_checkbox.isChecked() and len(dst_volumes) > 1:
             #error_box("Writing to Multiple Destinations When Using AFF4 Creates Container Files With Different Hashes.\n\n"
             #          "You will have to verify the content of the AFF4 containers when comparing containers and not the container itself.\n")
-            error_box("Only One Destination Supported When Using AFF4 Containers")
+            error_box(self, "Only One Destination Supported When Using AFF4 Containers")
             return
 
         if self.aff4_checkbox.isChecked():
-            error_box("AFF4 Support is Beta Level\n\n"
+            error_box(self, "AFF4 Support is Beta Level\n\n"
                       "Format is compliant with standard but might not be recognized by all forensic tools.\n"
                       "If your tool does not support AFF4-L or is unable to process, import the container as a zip file.")
 
@@ -724,7 +726,7 @@ class MainWidget(QtWidgets.QWidget):
             self.progress.open()
             self.progress.start_tasks()
         else:
-            error_box("No writable/valid drive selected or all destinations have been skipped!")
+            error_box(self, "No writable/valid drive selected or all destinations have been skipped!")
 
     # TODO - If AFF4 -> Check if same filename exists and not if folder is empty.
     def check_existing(self, volumes):
@@ -928,10 +930,15 @@ class MainWidget(QtWidgets.QWidget):
             message = f'Container: {path} already exists and will be overwritten.\n\nDo you want to continue?'
         else:
             message = f'Directory: {path} is not empty.\nData contained may be overwritten without additional confirmation.\n\nDo you want to continue?'
-        confirmation = QtWidgets.QMessageBox()
-        choice = confirmation.question(self, 'Confirm Overwrite',
-                                       message,
-                                       QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No)
+        confirmation = QtWidgets.QMessageBox(parent=self)
+        confirmation.setIcon(QtWidgets.QMessageBox.Warning)
+        confirmation.setText(message)
+        confirmation.addButton(QtWidgets.QMessageBox.Yes)
+        confirmation.addButton(QtWidgets.QMessageBox.No)
+        confirmation.setWindowTitle("Confirm Overwrite")
+        confirmation.setModal(True)
+        confirmation.setWindowModality(QtCore.Qt.WindowModal)
+        choice = confirmation.exec()
         if choice == QtWidgets.QMessageBox.Yes:
             return True
         else:
