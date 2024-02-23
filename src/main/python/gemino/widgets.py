@@ -435,14 +435,13 @@ class LoadingDialog(QtWidgets.QDialog):
 
 
 def error_box(parent, text, subtitle="", details=""):
-    message = QtWidgets.QMessageBox(parent=parent)  # "Error", "No writable drive selected!"
+    message = QtWidgets.QMessageBox(parent)  # "Error", "No writable drive selected!"
     message.setIcon(QtWidgets.QMessageBox.Warning)
     message.setText(text)
     message.setInformativeText(subtitle)
     message.setDetailedText(details)
     message.setWindowTitle("Error")
     message.setStandardButtons(QtWidgets.QMessageBox.Ok)
-    message.setModal(True)
     message.setWindowModality(QtCore.Qt.WindowModal)
     message.exec()
 
@@ -504,6 +503,7 @@ class MainWidget(QtWidgets.QWidget):
         self.src_dir_dialog = QtWidgets.QFileDialog(self)
         self.src_dir_dialog.setFileMode(QtWidgets.QFileDialog.Directory)
         self.src_dir_dialog.setOption(QtWidgets.QFileDialog.ShowDirsOnly)
+        self.src_dir_dialog.setWindowModality(QtCore.Qt.WindowModal)
         self.src_dir_dialog_button = QtWidgets.QPushButton("Choose Source Folder")
         self.src_dir_dialog_button.clicked.connect(self.open_files)
         self.src_dir_label = QtWidgets.QLabel("No Directory Selected")
@@ -519,6 +519,7 @@ class MainWidget(QtWidgets.QWidget):
         self.dst_dir_dialog = QtWidgets.QFileDialog(self)
         self.dst_dir_dialog.setFileMode(QtWidgets.QFileDialog.Directory)
         self.dst_dir_dialog.setOption(QtWidgets.QFileDialog.ShowDirsOnly)
+        self.dst_dir_dialog.setWindowModality(QtCore.Qt.WindowModal)
         self.dst_dir_dialog_button = QtWidgets.QPushButton("Choose Destination Folder")
         self.dst_dir_dialog_button.clicked.connect(self.select_dst_folder)
         self.dst_dir_label = QtWidgets.QLabel("No Directory Selected")
@@ -839,7 +840,11 @@ class MainWidget(QtWidgets.QWidget):
             directory = QtCore.QStandardPaths.standardLocations(QtCore.QStandardPaths.HomeLocation)[0]
         except:
             pass
-        self.source_dir = self.src_dir_dialog.getExistingDirectory(self, "Choose Directory to Copy", dir=directory)
+        self.src_dir_dialog.setDirectory(directory)
+        accepted = self.src_dir_dialog.exec()
+        self.source_dir: str = None
+        if accepted:
+            self.source_dir = self.src_dir_dialog.selectedFiles()[0]
         self.src_dir_label.setText(self.source_dir if self.source_dir else "No Directory Selected")
         if self.source_dir:
             self.get_size()
@@ -850,7 +855,11 @@ class MainWidget(QtWidgets.QWidget):
             directory = QtCore.QStandardPaths.standardLocations(QtCore.QStandardPaths.HomeLocation)[0]
         except:
             pass
-        self.dst_folder = self.dst_dir_dialog.getExistingDirectory(self, "Choose Directory to Copy", dir=directory)
+        self.dst_dir_dialog.setDirectory(directory)
+        accepted = self.dst_dir_dialog.exec()
+        self.dst_folder: str = None
+        if accepted:
+            self.dst_folder = self.dst_dir_dialog.selectedFiles()[0]
         self.dst_dir_label.setText(self.dst_folder if self.dst_folder else "No Directory Selected")
         if not self.dst_folder:
             self.dst_dir_information_label.setText("Select a destination folder to view storage details")
@@ -930,7 +939,7 @@ class MainWidget(QtWidgets.QWidget):
             message = f'Container: {path} already exists and will be overwritten.\n\nDo you want to continue?'
         else:
             message = f'Directory: {path} is not empty.\nData contained may be overwritten without additional confirmation.\n\nDo you want to continue?'
-        confirmation = QtWidgets.QMessageBox(parent=self)
+        confirmation = QtWidgets.QMessageBox(self)
         confirmation.setIcon(QtWidgets.QMessageBox.Warning)
         confirmation.setText(message)
         confirmation.addButton(QtWidgets.QMessageBox.Yes)
@@ -968,9 +977,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.verify_menu = QtGui.QAction("Verify AFF4 Image")
         self.verify_menu.triggered.connect(self.verify_aff4)
         self.tools.addAction(self.verify_menu)
+        self.bar = bar
 
     def about_box(self):
-        message = QtWidgets.QMessageBox()
+        message = QtWidgets.QMessageBox(self)
+        message.setWindowModality(QtCore.Qt.WindowModal)
         message.setIcon(QtWidgets.QMessageBox.Information)
         message.setText("gemino")
         message.setInformativeText(
@@ -981,14 +992,22 @@ class MainWindow(QtWidgets.QMainWindow):
         message.exec()
 
     def verify_aff4(self):
+        self.bar.setDisabled(True)
         self.src_container = QtWidgets.QFileDialog(self)
         self.src_container.setFileMode(QtWidgets.QFileDialog.ExistingFile)
+        self.src_container.setNameFilter("AFF4 Images (*.aff4)")
+        self.src_container.setWindowModality(QtCore.Qt.WindowModal)
         directory = ''
         try:
             directory = QtCore.QStandardPaths.standardLocations(QtCore.QStandardPaths.HomeLocation)[0]
         except:
             pass
-        src_container_path = self.src_container.getOpenFileName(self, "Choose container to verify", dir=directory, filter="AFF4 Images (*.aff4)")[0]
+        self.src_container.setDirectory(directory)
+        accepted = self.src_container.exec()
+        self.bar.setDisabled(False)
+        src_container_path: str = None
+        if accepted:
+            src_container_path = self.src_container.selectedFiles()[0]
         if src_container_path:
             try:
                 total_files, total_size = get_metadata(src_container_path)
