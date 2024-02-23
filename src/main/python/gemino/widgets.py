@@ -1021,7 +1021,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.progress.open()
                 self.progress.start_tasks()
             except Exception as e:
-                print(e)
+                error_box(self, "Unable to Verify", "An error occurred while opening the container", str(e))
                 pass
         else:
             pass
