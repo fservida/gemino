@@ -1025,3 +1025,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 pass
         else:
             pass
+
+
+class ErrorWindow(QtWidgets.QMainWindow):
+    def __init__(self, error):
+        super().__init__()
