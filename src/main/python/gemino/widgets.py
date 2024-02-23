@@ -145,7 +145,7 @@ class VolumeProgress(QtWidgets.QWidget):
         if self.__aff4_verify:
             self.__show_log_button.setHidden(not self.__finished)
         else:
-            self.__show_log_button.setHidden(False)
+            self.__show_log_button.setHidden(True)
 
         try:
             current_percent = self.__processed_bytes / self.__total_bytes * 100
