@@ -501,6 +501,7 @@ class MainWidget(QtWidgets.QWidget):
         # Instantiate Widgets
         # Source Dir
         self.src_dir_dialog = QtWidgets.QFileDialog(self)
+        self.src_dir_dialog.setWindowTitle("Select Source Folder")
         self.src_dir_dialog.setFileMode(QtWidgets.QFileDialog.Directory)
         self.src_dir_dialog.setOption(QtWidgets.QFileDialog.ShowDirsOnly)
         self.src_dir_dialog.setWindowModality(QtCore.Qt.WindowModal)
@@ -517,6 +518,7 @@ class MainWidget(QtWidgets.QWidget):
         self.dst_vbar.setFrameShape(QtWidgets.QFrame.VLine)
         self.destinations_label = QtWidgets.QLabel("Destinations:")
         self.dst_dir_dialog = QtWidgets.QFileDialog(self)
+        self.dst_dir_dialog.setWindowTitle("Select Destination Folder")
         self.dst_dir_dialog.setFileMode(QtWidgets.QFileDialog.Directory)
         self.dst_dir_dialog.setOption(QtWidgets.QFileDialog.ShowDirsOnly)
         self.dst_dir_dialog.setWindowModality(QtCore.Qt.WindowModal)
@@ -994,6 +996,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def verify_aff4(self):
         self.bar.setDisabled(True)
         self.src_container = QtWidgets.QFileDialog(self)
+        self.src_container.setWindowTitle("Select AFF4 Container to Verify")
         self.src_container.setFileMode(QtWidgets.QFileDialog.ExistingFile)
         self.src_container.setNameFilter("AFF4 Images (*.aff4)")
         self.src_container.setWindowModality(QtCore.Qt.WindowModal)
