@@ -1,12 +1,15 @@
 name: Packaging Gemino
-run-name: ${{ github.actor }} is packaging Gemino
-on: [push]
+run-name: ${{ github.actor }} is packaging Gemino for deployment.
+on:
+  push:
+    tags:
+      - "*"
 jobs:
   build-macos:
     runs-on: macos-11
     strategy:
       matrix:
-        python-version: ["3.6"]
+        python-version: ["3.9"]
     steps:
       - name: Check out repository code
         uses: actions/checkout@v3
@@ -17,24 +20,31 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install pybindgen
           pip install -r requirements/base.txt
-      - name: Package app with fbs with fixes for pyinstaller issues
+      - name: Setup codesigning environment
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          KEYCHAIN_PWD: ${{ secrets.KEYCHAIN_PWD }}
         run: |
-          PACKAGE_PATH=$(pip show shiboken2|grep Location:|cut -d " " -f2)
-          cp $PACKAGE_PATH/shiboken2/libshiboken2.abi3.5.12.dylib $PACKAGE_PATH/PySide2/
-          fbs freeze
-          mkdir target/gemino.app/Contents/MacOS/lib2to3
-          cp $PACKAGE_PATH/../lib2to3/*.txt target/gemino.app/Contents/MacOS/lib2to3
-          cp $PACKAGE_PATH/../lib2to3/*.pickle target/gemino.app/Contents/MacOS/lib2to3
-      - name: Package installer with fbs
+          echo $MACOS_CERTIFICATE | base64 —decode > certificate.p12
+          security create-keychain -p $KEYCHAIN_PWD build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p $KEYCHAIN_PWD build.keychain
+          security import certificate.p12 -k build.keychain -P $MACOS_CERTIFICATE_PWD -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k $KEYCHAIN_PWD build.keychain
+          security find-identity -v -p codesigning
+      - name: Package app with PyInstaller and Create-DMG
         run: |
-          fbs installer
+          src/build/build_macos.sh
       - name: 'Upload Artifact'
         uses: actions/upload-artifact@v3
         with:
           name: gemino.dmg
           path: target/gemino.dmg
   build-ubuntu:
+    if: false
     runs-on: ubuntu-20.04
     strategy:
       matrix:
@@ -65,6 +75,7 @@ jobs:
           name: gemino.deb
           path: target/gemino.deb
   build-windows:
+    if: false
     runs-on: windows-2019
     strategy:
       matrix:
