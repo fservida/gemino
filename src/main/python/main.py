@@ -3,8 +3,8 @@ from PySide6.QtWidgets import QApplication
 import sys
 
 from gemino.widgets import MainWindow, ErrorWindow, error_box
+from gemino.vars import VERSION
 
-VERSION = "2.8.0"
 
 if __name__ == '__main__':
     exit_code = -1

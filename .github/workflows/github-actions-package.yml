@@ -42,7 +42,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: gemino.dmg
-          path: target/gemino.dmg
+          path: build/dist/gemino.dmg
   build-ubuntu:
     if: false
     runs-on: ubuntu-20.04
@@ -75,11 +75,10 @@ jobs:
           name: gemino.deb
           path: target/gemino.deb
   build-windows:
-    if: false
     runs-on: windows-2019
     strategy:
       matrix:
-        python-version: ["3.6"]
+        python-version: ["3.9"]
     steps:
       - name: Check out repository code
         uses: actions/checkout@v3
@@ -91,19 +90,16 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install wheel
-          pip install https://static.servida.ch/software/python/lz4/lz4-3.1.10-cp36-cp36m-win_amd64.whl
-          pip install https://static.servida.ch/software/python/fastchunking/fastchunking-0.0.3-cp36-cp36m-win_amd64.whl
+          pip install pybindgen
+          pip install https://static.servida.ch/software/python/fastchunking/fastchunking-0.0.3-cp39-cp39-win_amd64.whl
           pip install -r requirements/base.txt
-      - name: Package app with fbs
+      - name: Package app with PyInstaller and NSIS
         run: |
-          fbs freeze
-      - name: Package installer with fbs
-        run: |
-          fbs installer
+          src\build\windows\build_windows.bat
       - name: 'Upload Artifact'
         uses: actions/upload-artifact@v3
         with:
           name: geminoSetup.exe
-          path: target/geminoSetup.exe
+          path: build/dist/geminoSetup.exe
           
       

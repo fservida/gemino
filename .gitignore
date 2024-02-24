@@ -174,3 +174,7 @@ fabric.properties
 
 ########## Other
 test_copy.py
+
+# NSIS
+Installer.nsi
+version_info.py
