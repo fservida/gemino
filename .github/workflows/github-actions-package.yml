@@ -28,7 +28,7 @@ jobs:
           MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
           KEYCHAIN_PWD: ${{ secrets.KEYCHAIN_PWD }}
         run: |
-          echo $MACOS_CERTIFICATE | base64 —decode > certificate.p12
+          echo $MACOS_CERTIFICATE | base64 --decode > certificate.p12
           security create-keychain -p $KEYCHAIN_PWD build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p $KEYCHAIN_PWD build.keychain
@@ -43,6 +43,7 @@ jobs:
         with:
           name: gemino.dmg
           path: build/dist/gemino.dmg
+          if-no-files-found: error
   build-ubuntu:
     if: false
     runs-on: ubuntu-20.04
@@ -74,6 +75,7 @@ jobs:
         with:
           name: gemino.deb
           path: target/gemino.deb
+          if-no-files-found: error
   build-windows:
     runs-on: windows-2019
     strategy:
@@ -101,5 +103,6 @@ jobs:
         with:
           name: geminoSetup.exe
           path: build/dist/geminoSetup.exe
+          if-no-files-found: error
           
       
