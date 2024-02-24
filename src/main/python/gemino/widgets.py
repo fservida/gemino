@@ -266,7 +266,7 @@ class VolumeProgress(QtWidgets.QWidget):
 
     def __show_log(self):
         self.log_dialog = LogDialog(self, f'Verification Log for {self.volume}', self.__log)
-        self.log_dialog.setWindowFlags(QtCore.Qt.CustomizeWindowHint)
+        self.log_dialog.setWindowFlags(QtCore.Qt.CustomizeWindowHint|QtCore.Qt.Dialog)
         self.log_dialog.setModal(True)
         self.log_dialog.setWindowModality(QtCore.Qt.ApplicationModal)
         self.log_dialog.open()
@@ -724,7 +724,7 @@ class MainWidget(QtWidgets.QWidget):
             # At least one drive selected and writable
             self.progress = ProgressWindow(self, self.source_dir, dst_volumes, hash_algos, self.files_count, self.dir_size,
                                       self.metadata, self.aff4_checkbox.isChecked(), self.aff_filename)
-            self.progress.setWindowFlags(QtCore.Qt.CustomizeWindowHint)
+            self.progress.setWindowFlags(QtCore.Qt.CustomizeWindowHint|QtCore.Qt.Dialog)
             self.progress.setWindowModality(QtCore.Qt.ApplicationModal)
             self.progress.open()
             self.progress.start_tasks()
@@ -877,7 +877,7 @@ class MainWidget(QtWidgets.QWidget):
         # Create Loading Modal
         self.loading = LoadingDialog()
         self.loading.setModal(True)
-        self.loading.setWindowFlags(QtCore.Qt.CustomizeWindowHint)
+        self.loading.setWindowFlags(QtCore.Qt.CustomizeWindowHint|QtCore.Qt.Dialog)
         self.loading.show()
 
         # Start Calculating size & File count
@@ -1015,7 +1015,7 @@ class MainWindow(QtWidgets.QMainWindow):
             try:
                 total_files, total_size = get_metadata(src_container_path)
                 self.progress = ProgressWindow(self, src_container_path, total_files=total_files, total_bytes=total_size, aff4_verify=True)
-                self.progress.setWindowFlags(QtCore.Qt.CustomizeWindowHint)
+                self.progress.setWindowFlags(QtCore.Qt.CustomizeWindowHint|QtCore.Qt.Dialog)
                 self.progress.setModal(True)
                 self.progress.setWindowModality(QtCore.Qt.ApplicationModal)
                 self.progress.open()
