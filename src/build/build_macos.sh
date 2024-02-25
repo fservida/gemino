@@ -8,7 +8,7 @@ rm -rf build/dist/app/gemino
 
 echo "Create keychain profile"
 echo $MACOS_NOTARIZATION_KEY | base64 --decode > authkey.p8
-xcrun notarytool store-credentials -k authkey.p8 -d $MACOS_NOTARIZATION_KEY_ID -i $MACOS_NOTARIZATION_ISSUER
+xcrun notarytool store-credentials -k authkey.p8 -d $MACOS_NOTARIZATION_KEY_ID -i $MACOS_NOTARIZATION_ISSUER notarytool-profile
 rm -P authkey.p8
 
 # We can't notarize an app bundle directly, but we need to compress it as an archive.
