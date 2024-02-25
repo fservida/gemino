@@ -1,6 +1,11 @@
 pip install Pillow
+
 rm -rf build/
 pyinstaller src/main/python/main.py --workpath build/build --distpath build/dist/app --clean --osx-bundle-identifier ch.francescoservida.gemino --codesign-identity "Developer ID Application: Francesco Servida (UVXFW83BXV)" --windowed --icon src/main/icons/mac/256.png -y -n gemino
+
+rm -rf build/
+sed -ie "s/name='gemino.app',/name='gemino.app',\n    version='2.8.0',/" gemino.spec
+pyinstaller gemino.spec --workpath build/build --distpath build/dist/app -y
 rm -rf build/dist/app/gemino
 
 # Store the notarization credentials so that we can prevent a UI password dialog
