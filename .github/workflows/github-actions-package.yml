@@ -27,6 +27,9 @@ jobs:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
           MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
           KEYCHAIN_PWD: ${{ secrets.KEYCHAIN_PWD }}
+          MACOS_NOTARIZATION_ISSUER: ${{ secrets.MACOS_NOTARIZATION_ISSUER }}
+          MACOS_NOTARIZATION_KEY: ${{ secrets.MACOS_NOTARIZATION_KEY }}
+          MACOS_NOTARIZATION_KEY_ID: ${{ secrets.MACOS_NOTARIZATION_KEY_ID }}
         run: |
           echo $MACOS_CERTIFICATE | base64 --decode > certificate.p12
           security create-keychain -p $KEYCHAIN_PWD build.keychain
