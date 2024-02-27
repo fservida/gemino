@@ -11,7 +11,7 @@ rm -rf build/dist/app/gemino
 pyinstaller src/main/python/main.py --workpath build/build --distpath build/dist/appstore --clean --osx-bundle-identifier ch.francescoservida.gemino --codesign-identity "3rd Party Mac Developer Application: Francesco Servida (UVXFW83BXV)" --windowed --icon src/main/icons/mac/256.png -y -n gemino
 
 rm -rf build/build
-sed -ie "s/name='gemino.app',/name='gemino.app',\n    version='2.8.0',/" gemino.spec
+sed -ie "s/name='gemino.app',/name='gemino.app',\n    version='2.8.0',\n    info_plist={'CFBundleVersion': '$(date +%Y%m%d%H%M)'},/" gemino.spec
 pyinstaller gemino.spec --workpath build/build --distpath build/dist/appstore -y
 rm -rf build/dist/appstore/gemino
 
