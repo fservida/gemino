@@ -8,6 +8,13 @@ sed -ie "s/name='gemino.app',/name='gemino.app',\n    version='2.8.0',/" gemino.
 pyinstaller gemino.spec --workpath build/build --distpath build/dist/app -y
 rm -rf build/dist/app/gemino
 
+pyinstaller src/main/python/main.py --workpath build/build --distpath build/dist/appstore --clean --osx-bundle-identifier ch.francescoservida.gemino --codesign-identity "3rd Party Mac Developer Application: Francesco Servida (UVXFW83BXV)" --windowed --icon src/main/icons/mac/256.png -y -n gemino
+
+rm -rf build/build
+sed -ie "s/name='gemino.app',/name='gemino.app',\n    version='2.8.0',/" gemino.spec
+pyinstaller gemino.spec --workpath build/build --distpath build/dist/appstore -y
+rm -rf build/dist/appstore/gemino
+
 # Store the notarization credentials so that we can prevent a UI password dialog
 # from blocking the CI
 
@@ -34,15 +41,17 @@ xcrun notarytool submit "notarization.zip" --keychain-profile "notarytool-profil
 # Finally, we need to "attach the staple" to our executable, which will allow our app to be
 # validated by macOS even when an internet connection is not available.
 echo "Attach staple"
-xcrun stapler staple "build/dist/app/gemino.app"
+xcrun stapler staple -v "build/dist/app/gemino.app"
 
 git clone https://github.com/create-dmg/create-dmg.git
 create-dmg/create-dmg --volname gemino --app-drop-link 10 10 build/dist/gemino.dmg build/dist/app
+
 codesign -fvs "Developer ID Application: Francesco Servida (UVXFW83BXV)" build/dist/gemino.dmg
-
-
 xcrun notarytool submit build/dist/gemino.dmg --keychain-profile "notarytool-profile" --wait
 # Finally, we need to "attach the staple" to our dmg, which will allow the image to be
 # validated by macOS even when an internet connection is not available.
 echo "Attach staple"
-xcrun stapler staple "build/dist/gemino.dmg"
+xcrun stapler staple -v "build/dist/gemino.dmg"
+
+
+productbuild --sign "3rd Party Mac Developer Installer: Francesco Servida (UVXFW83BXV)" --component build/dist/appstore/gemino.app /Applications build/dist/gemino.pkg

@@ -26,14 +26,28 @@ jobs:
         env:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
           MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          MACOS_CERTIFICATE_APP_DISTRIBUTION: ${{ secrets.MACOS_CERTIFICATE_APP_DISTRIBUTION }}
+          MACOS_CERTIFICATE_APP_DISTRIBUTION_PWD: ${{ secrets.MACOS_CERTIFICATE_APP_DISTRIBUTION_PWD }}
+          MACOS_CERTIFICATE_INSTALLER_DISTRIBUTION: ${{ secrets.MACOS_CERTIFICATE_INSTALLER_DISTRIBUTION }}
+          MACOS_CERTIFICATE_INSTALLER_DISTRIBUTION_PWD: ${{ secrets.MACOS_CERTIFICATE_INSTALLER_DISTRIBUTION_PWD }}
           KEYCHAIN_PWD: ${{ secrets.KEYCHAIN_PWD }}
         run: |
           echo $MACOS_CERTIFICATE | base64 --decode > certificate.p12
           security create-keychain -p $KEYCHAIN_PWD build.keychain
+          security set-keychain-settings -lut 21600 build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p $KEYCHAIN_PWD build.keychain
           security import certificate.p12 -k build.keychain -P $MACOS_CERTIFICATE_PWD -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k $KEYCHAIN_PWD build.keychain
+
+          echo $MACOS_CERTIFICATE_APP_DISTRIBUTION | base64 --decode > certificate.p12
+          security import certificate.p12 -k build.keychain -P $MACOS_CERTIFICATE_APP_DISTRIBUTION_PWD -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k $KEYCHAIN_PWD build.keychain
+
+          echo $MACOS_CERTIFICATE_INSTALLER_DISTRIBUTION | base64 --decode > certificate.p12
+          security import certificate.p12 -k build.keychain -P $MACOS_CERTIFICATE_INSTALLER_DISTRIBUTION_PWD -A /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k $KEYCHAIN_PWD build.keychain
+
           security find-identity -v -p codesigning
       - name: Package app with PyInstaller and Create-DMG
         env:
@@ -42,11 +56,17 @@ jobs:
           MACOS_NOTARIZATION_KEY_ID: ${{ secrets.MACOS_NOTARIZATION_KEY_ID }}
         run: |
           src/build/build_macos.sh
-      - name: 'Upload Artifact'
+      - name: 'Upload DMG Artifact'
         uses: actions/upload-artifact@v3
         with:
           name: gemino.dmg
           path: build/dist/gemino.dmg
+          if-no-files-found: error
+      - name: 'Upload PKG Artifact'
+        uses: actions/upload-artifact@v3
+        with:
+          name: gemino.pkg
+          path: build/dist/gemino.pkg
           if-no-files-found: error
   build-ubuntu:
     if: false
