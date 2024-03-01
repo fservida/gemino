@@ -3,10 +3,11 @@ run-name: ${{ github.actor }} is packaging Gemino for deployment.
 on:
   push:
     branches:
-      - master
+      - 'master'
+      - 'releases/**'
   pull_request:
     branches:
-      - master
+      - 'master'
 jobs:
   build-macos:
     runs-on: macos-11
