@@ -1,19 +1,15 @@
 pip install Pillow
+pip install Jinja2
+
+python src/build/macos/macos_build_templates.py
 
 rm -rf build/
-pyinstaller src/main/python/main.py --workpath build/build --distpath build/dist/app --clean --osx-bundle-identifier ch.francescoservida.gemino --codesign-identity "Developer ID Application: Francesco Servida (UVXFW83BXV)" --windowed --icon src/main/icons/mac/256.png -y -n gemino
-
-rm -rf build/
-sed -ie "s/name='gemino.app',/name='gemino.app',\n    version='2.8.0',\n    info_plist={'CFBundleVersion': '$(date +%Y%m%d%H%M)', 'LSApplicationCategoryType': 'public.app-category.utilities'},/" gemino.spec
-pyinstaller gemino.spec --workpath build/build --distpath build/dist/app -y
+pyinstaller gemino.custom.spec --workpath build/build --distpath build/dist/app -y
 rm -rf build/dist/app/gemino
+rm -rf build/build
 
 # Only use entitlements for app store version, non app store version is not sandboxed
-pyinstaller src/main/python/main.py --workpath build/build --distpath build/dist/appstore --clean --osx-bundle-identifier ch.francescoservida.gemino --codesign-identity "3rd Party Mac Developer Application: Francesco Servida (UVXFW83BXV)" --osx-entitlements-file "src/build/entitlements.plist" --windowed --icon src/main/icons/mac/256.png -y -n gemino
-
-rm -rf build/build
-sed -ie "s/name='gemino.app',/name='gemino.app',\n    version='2.8.0',\n    info_plist={'CFBundleVersion': '$(date +%Y%m%d%H%M)', 'LSApplicationCategoryType': 'public.app-category.utilities'},/" gemino.spec
-pyinstaller gemino.spec --workpath build/build --distpath build/dist/appstore -y
+pyinstaller gemino.appstore.spec --workpath build/build --distpath build/dist/appstore -y
 rm -rf build/dist/appstore/gemino
 
 # Store the notarization credentials so that we can prevent a UI password dialog
