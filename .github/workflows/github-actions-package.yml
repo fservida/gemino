@@ -55,7 +55,7 @@ jobs:
           MACOS_NOTARIZATION_KEY: ${{ secrets.MACOS_NOTARIZATION_KEY }}
           MACOS_NOTARIZATION_KEY_ID: ${{ secrets.MACOS_NOTARIZATION_KEY_ID }}
         run: |
-          src/build/build_macos.sh
+          src/build/macos/build_macos.sh
       - name: 'Upload DMG Artifact'
         uses: actions/upload-artifact@v3
         with:
