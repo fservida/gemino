@@ -49,7 +49,15 @@ app = BUNDLE(
     bundle_identifier='ch.francescoservida.gemino',
     version='{{ version }}',
     info_plist={
+        'NSPrincipalClass': 'NSApplication',
+        'NSAppleScriptEnabled': False,
+        'LSBackgroundOnly': False,
+        'NSRequiresAquaSystemAppearance': 'No',
+        'CFBundlePackageType': 'APPL',
+        'CFBundleSupportedPlatforms': ['MacOSX'],
         'CFBundleVersion': '{{ current_date }}',
+        'LSMinimumSystemVersion': '10.15',
         'LSApplicationCategoryType': 'public.app-category.utilities',
+        'ITSAppUsesNonExemptEncryption': False,
     }
 )
