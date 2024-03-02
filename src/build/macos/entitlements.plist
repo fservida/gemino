@@ -5,7 +5,7 @@
 	<key>com.apple.developer.team-identifier</key>
 	<string>UVXFW83BXV</string>
 	<key>com.apple.application-identifier</key>
-	<string>ch.francescoservida.gemino</string>
+	<string>UVXFW83BXV.ch.francescoservida.gemino</string>
 	<key>com.apple.security.cs.allow-jit</key>
 	<true/>
 	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
