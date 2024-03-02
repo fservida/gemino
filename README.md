@@ -13,6 +13,7 @@
       - [From binaries](#from-binaries)
       - [From source](#from-source)
     - [Contribution Guide](#contribution-guide)
+    - [Privacy Policy](#privacy-policy)
     - [Feedbacks](#feedbacks)
 
 ## gemino file duplicator
@@ -125,6 +126,9 @@ Please share the packaged binary/installer (installer preferable) for others to 
 
 When submitting PRs please ensure your code is well commented, just like mine.
 (just kidding, mine is a mess too)
+
+### Privacy Policy
+Details on our privacy policy can be found at [https://francescoservida.ch/gemino/privacy](https://francescoservida.ch/gemino/privacy)
 
 ### Feedbacks
 
