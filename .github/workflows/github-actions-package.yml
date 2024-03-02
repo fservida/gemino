@@ -35,7 +35,6 @@ jobs:
           MACOS_CERTIFICATE_INSTALLER_DISTRIBUTION: ${{ secrets.MACOS_CERTIFICATE_INSTALLER_DISTRIBUTION }}
           MACOS_CERTIFICATE_INSTALLER_DISTRIBUTION_PWD: ${{ secrets.MACOS_CERTIFICATE_INSTALLER_DISTRIBUTION_PWD }}
           KEYCHAIN_PWD: ${{ secrets.KEYCHAIN_PWD }}
-          MACOS_PROVISIONING_PROFILE: ${{ secrets.MACOS_PROVISIONING_PROFILE }}
         run: |
           echo $MACOS_CERTIFICATE | base64 --decode > certificate.p12
           security create-keychain -p $KEYCHAIN_PWD build.keychain
@@ -59,6 +58,7 @@ jobs:
           MACOS_NOTARIZATION_ISSUER: ${{ secrets.MACOS_NOTARIZATION_ISSUER }}
           MACOS_NOTARIZATION_KEY: ${{ secrets.MACOS_NOTARIZATION_KEY }}
           MACOS_NOTARIZATION_KEY_ID: ${{ secrets.MACOS_NOTARIZATION_KEY_ID }}
+          MACOS_PROVISIONING_PROFILE: ${{ secrets.MACOS_PROVISIONING_PROFILE }}
         run: |
           src/build/macos/build_macos.sh
       - name: 'Upload DMG Artifact'

@@ -2,7 +2,6 @@ pip install Pillow
 pip install Jinja2
 
 echo $MACOS_PROVISIONING_PROFILE | base64 --decode > embedded.provisionprofile
-ls -lah
 
 python src/build/macos/macos_build_templates.py
 
