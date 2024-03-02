@@ -1,5 +1,20 @@
 # gemino
 [![Build Status](https://github.com/fservida/gemino/actions/workflows/github-actions-package.yml/badge.svg)](https://github.com/fservida/gemino/actions/workflows/github-actions-package.yml)
+
+- [gemino](#gemino)
+  - [gemino file duplicator](#gemino-file-duplicator)
+    - [Features](#features)
+    - [AFF4-L Support](#aff4-l-support)
+    - [Drawbacks](#drawbacks)
+      - [Copy Performance](#copy-performance)
+      - [Hash Verification Performance](#hash-verification-performance)
+    - [TODO](#todo)
+    - [Installation \& Running](#installation--running)
+      - [From binaries](#from-binaries)
+      - [From source](#from-source)
+    - [Contribution Guide](#contribution-guide)
+    - [Feedbacks](#feedbacks)
+
 ## gemino file duplicator
 
 Gemino is a file duplicator with advanced capabilities useful for copying forensics datasets and doing logical acquisitions.
