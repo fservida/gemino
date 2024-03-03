@@ -557,7 +557,7 @@ class MainWidget(QtWidgets.QWidget):
         self.notes_text_field = QtWidgets.QTextEdit()
         self.init_hashing_widgets()
         # AFF4 Support
-        self.aff4_checkbox = QtWidgets.QCheckBox("Write to AFF4 Container - Beta support", self)
+        self.aff4_checkbox = QtWidgets.QCheckBox("Write to AFF4 Container", self)
         self.aff4_checkbox.stateChanged.connect(self.toggle_aff4_filename)
         self.aff4_filename_label = QtWidgets.QLabel("AFF4 Container Filename (w/o extension):")
         self.aff4_filename = QtWidgets.QLineEdit()
@@ -713,8 +713,7 @@ class MainWidget(QtWidgets.QWidget):
             return
 
         if self.aff4_checkbox.isChecked():
-            error_box(self, "AFF4 Support is Beta Level\n\n"
-                      "Format is compliant with standard but might not be recognized by all forensic tools.\n"
+            error_box(self, "Containers in AFF4 format are compliant with standard but might not be recognized by all forensic tools.\n"
                       "If your tool does not support AFF4-L or is unable to process, import the container as a zip file.")
 
         dst_volumes = self.check_existing(dst_volumes)

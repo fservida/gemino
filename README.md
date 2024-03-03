@@ -1,5 +1,25 @@
 # gemino
 [![Build Status](https://github.com/fservida/gemino/actions/workflows/github-actions-package.yml/badge.svg)](https://github.com/fservida/gemino/actions/workflows/github-actions-package.yml)
+
+- [gemino](#gemino)
+  - [gemino file duplicator](#gemino-file-duplicator)
+    - [Features](#features)
+    - [AFF4-L Support](#aff4-l-support)
+    - [Drawbacks](#drawbacks)
+      - [Copy Performance](#copy-performance)
+      - [Hash Verification Performance](#hash-verification-performance)
+    - [TODO](#todo)
+    - [Installation \& Running](#installation--running)
+      - [From binaries](#from-binaries)
+      - [From source](#from-source)
+    - [Contribution Guide](#contribution-guide)
+    - [Feedbacks](#feedbacks)
+    - [Privacy Policy](#privacy-policy)
+      - [Collection of Personal Information](#collection-of-personal-information)
+      - [Email](#email)
+      - [Disclosure of Personal Information](#disclosure-of-personal-information)
+      - [Contacting Us](#contacting-us)
+
 ## gemino file duplicator
 
 Gemino is a file duplicator with advanced capabilities useful for copying forensics datasets and doing logical acquisitions.
@@ -115,3 +135,21 @@ When submitting PRs please ensure your code is well commented, just like mine.
 
 Feel free to open issues and leave your feedback
 
+### Privacy Policy
+By using "gemino" you are consenting to our policies regarding the collection, use and disclosure of personal information set out in this privacy policy.
+
+#### Collection of Personal Information
+
+We do not collect, store, use or share any information, personal or otherwise.
+
+#### Email
+
+If you email the developer for support or other feedback, the emails with email addresses will be retained for quality assurance purposes. The email addresses will be used only to reply to the concerns or suggestions raised and will never be used for any marketing purpose.
+
+#### Disclosure of Personal Information
+
+We will not disclose your information to any third party except if you expressly consent or where required by law.
+
+#### Contacting Us
+
+If you have any questions regarding this privacy policy, you can email gemino@francescoservida.ch

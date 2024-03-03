@@ -12,4 +12,4 @@ with open('src/build/macos/gemino.spec.j2') as src:
 # Build for appstore distribution (sandboxed)
 with open('src/build/macos/gemino.spec.j2') as src:
     with open('gemino.appstore.spec', "w") as dst:
-        dst.write(Template(src.read()).render(version=VERSION, developer_id="3rd Party Mac Developer Application: Francesco Servida (UVXFW83BXV)", entitlements_file="src/build/macos/entitlements.plist", current_date=CURRENT_DATE))
+        dst.write(Template(src.read()).render(version=VERSION, developer_id="3rd Party Mac Developer Application: Francesco Servida (UVXFW83BXV)", entitlements_file="", current_date=CURRENT_DATE))
