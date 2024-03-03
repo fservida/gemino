@@ -1,5 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import sys
+sys.modules['FixTk'] = None
 
 a = Analysis(
     ['src/main/python/main.py'],
@@ -10,7 +12,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['FixTk', 'tcl', 'tk', '_tkinter', 'tkinter', 'Tkinter'],
     noarchive=False,
 )
 pyz = PYZ(a.pure)
