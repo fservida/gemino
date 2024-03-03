@@ -25,6 +25,6 @@ class HashBuffer(Thread):
 
 
 @dataclass
-class ProgressData():
+class ProgressData:
     status: int
     payload: dict

@@ -5,17 +5,18 @@ from pyaff4.aff4 import ProgressContext
 from past.utils import old_div
 from ..utils import ProgressData
 
+
 class ProgressContextListener(ProgressContext):
 
     copy_progress = None
     destinations = None
     processed_files = None
     current_file = None
-    status = ''
+    status = ""
     main_status = 0
 
     def __init__(self, *args, **kwargs):
-        super(ProgressContext, self).__init__( *args, **kwargs)
+        super(ProgressContext, self).__init__(*args, **kwargs)
 
     def Report(self, readptr):
         readptr = readptr + self.start
@@ -26,8 +27,15 @@ class ProgressContextListener(ProgressContext):
             self.copy_progress.emit(
                 ProgressData(
                     status=self.main_status,
-                    payload={dst: {'status': self.status, 'processed_bytes': readptr, 'processed_files': self.processed_files,
-                            'current_file': self.current_file} for dst in self.destinations}
+                    payload={
+                        dst: {
+                            "status": self.status,
+                            "processed_bytes": readptr,
+                            "processed_files": self.processed_files,
+                            "current_file": self.current_file,
+                        }
+                        for dst in self.destinations
+                    },
                 )
             )
 
@@ -60,7 +68,7 @@ def trimVolume(volume, image):
     volstring = utils.SmartUnicode(volume)
     imagestring = utils.SmartUnicode(image)
     if imagestring.startswith(volstring):
-        imagestring = imagestring[len(volstring):]
+        imagestring = imagestring[len(volstring) :]
     if imagestring.startswith("//"):
         imagestring = imagestring[2:]
     return imagestring
@@ -73,13 +81,17 @@ def get_metadata(src):
     filecount = 0
     total_size = 0
 
-    with container.Container.openURNtoContainer(rdfvalue.URN.FromFileName(src)) as volume:
+    with container.Container.openURNtoContainer(
+        rdfvalue.URN.FromFileName(src)
+    ) as volume:
 
         for image in volume.images():
             # Each image is a file in the container.
             # Update Byte Progress
             filecount += 1
-            filesize = int(image.resolver.store.get(image.urn).get(lexicon.AFF4_STREAM_SIZE))
+            filesize = int(
+                image.resolver.store.get(image.urn).get(lexicon.AFF4_STREAM_SIZE)
+            )
             total_size += filesize
-    
+
     return filecount, total_size

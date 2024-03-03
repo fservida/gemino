@@ -13,6 +13,7 @@ from .copy.logical.aff4 import get_metadata
 # Typing assignment for easier code navigation
 ProgressTuple = tuple[int, dict[str, dict]]
 
+
 class LogDialog(QtWidgets.QDialog):
     def __init__(self, parent: QtWidgets.QWidget, title: str, log: str):
         super().__init__(parent=parent)
@@ -20,7 +21,7 @@ class LogDialog(QtWidgets.QDialog):
         self.__setup_ui()  # Must be after setting title and before the first call to log setter
         self.log = log
         self.resize(900, 500)
-    
+
     def __setup_ui(self):
         self.setWindowTitle(self.__title)
 
@@ -51,26 +52,35 @@ class LogDialog(QtWidgets.QDialog):
 
 class VolumeProgress(QtWidgets.QWidget):
     __STATUSES = {
-        'copy': 'Copying Files',
-        'idle': 'Idle',
-        'hashing': 'Verifying Hash',
-        'done': 'Done',
-        'error_copy': 'Copy Error',
-        'error_hash': 'Hash Verification Error',
-        'error_io': 'Lost Communication to Device'
+        "copy": "Copying Files",
+        "idle": "Idle",
+        "hashing": "Verifying Hash",
+        "done": "Done",
+        "error_copy": "Copy Error",
+        "error_hash": "Hash Verification Error",
+        "error_io": "Lost Communication to Device",
     }
 
-    def __init__(self, volume_name, total_bytes, total_files, aff4_filename: str = "", aff4_verify: bool = False):
+    def __init__(
+        self,
+        volume_name,
+        total_bytes,
+        total_files,
+        aff4_filename: str = "",
+        aff4_verify: bool = False,
+    ):
         super().__init__()
 
         # Init Data
-        self.__status = 'idle'
+        self.__status = "idle"
         self.__verified = 0
-        self.__current_file = '-'
+        self.__current_file = "-"
         self.__processed_files = 0
         self.__total_files = total_files
         self.__processed_bytes = 0
-        self.__previous_bytes_granular = 0  # Processed bytes updated with minimum 1 second granularity
+        self.__previous_bytes_granular = (
+            0  # Processed bytes updated with minimum 1 second granularity
+        )
         self.__total_bytes = total_bytes
         self.__volume_name = volume_name
         self.__previous_time = datetime.now()
@@ -88,24 +98,30 @@ class VolumeProgress(QtWidgets.QWidget):
     def __setup_ui(self):
         self.__volume_label = QtWidgets.QLabel()
         self.__current_status_label = QtWidgets.QLabel()
-        self.__current_status_label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
+        self.__current_status_label.setAlignment(
+            QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter
+        )
         self.__progress_bar = QtWidgets.QProgressBar()
         self.__current_file_label = QtWidgets.QLabel()
         self.__size_progress_label = QtWidgets.QLabel()
-        self.__size_progress_label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
+        self.__size_progress_label.setAlignment(
+            QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter
+        )
         self.__speed_label = QtWidgets.QLabel()
         self.__speed_label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
         self.__eta_label = QtWidgets.QLabel()
         self.__eta_label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
         self.__file_progress_label = QtWidgets.QLabel()
-        self.__file_progress_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self.__file_progress_label.setAlignment(
+            QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
+        )
         if self.__aff4_verify:
-            self.__open_folder_button = QtWidgets.QPushButton('Open Container Folder')
+            self.__open_folder_button = QtWidgets.QPushButton("Open Container Folder")
         else:
-            self.__open_folder_button = QtWidgets.QPushButton('Open Destination')
+            self.__open_folder_button = QtWidgets.QPushButton("Open Destination")
         self.__open_folder_button.clicked.connect(self.__open_folder)
 
-        self.__show_log_button = QtWidgets.QPushButton('Show Log')
+        self.__show_log_button = QtWidgets.QPushButton("Show Log")
         self.__show_log_button.clicked.connect(self.__show_log)
 
         self.__layout_container = QtWidgets.QVBoxLayout()
@@ -122,7 +138,9 @@ class VolumeProgress(QtWidgets.QWidget):
         self.__layout_fourth_row.addWidget(self.__file_progress_label)
 
         self.__layout_container.addLayout(self.__layout_first_row)
-        self.__layout_container.addWidget(self.__progress_bar)  # "Second Row" Dedicated to Progress Bar
+        self.__layout_container.addWidget(
+            self.__progress_bar
+        )  # "Second Row" Dedicated to Progress Bar
         self.__layout_container.addWidget(self.__show_log_button)
         self.__layout_container.addLayout(self.__layout_third_row)
         self.__layout_container.addLayout(self.__layout_fourth_row)
@@ -131,16 +149,25 @@ class VolumeProgress(QtWidgets.QWidget):
 
     def __update_ui(self):
         if self.__aff4_filename:
-            self.__volume_label.setText(os.path.join(self.__volume_name, self.__aff4_filename))
+            self.__volume_label.setText(
+                os.path.join(self.__volume_name, self.__aff4_filename)
+            )
         else:
             self.__volume_label.setText(self.__volume_name)
         self.__current_status_label.setText(VolumeProgress.__STATUSES[self.__status])
         self.__current_file_label.setText(self.current_file_truncated)
         self.__size_progress_label.setText(
-            "{:.2f} / {:.2f} GB".format(self.__processed_bytes / 10 ** 9, self.__total_bytes / 10 ** 9))
-        self.__file_progress_label.setText("{} / {} files".format(self.__processed_files, self.__total_files))
+            "{:.2f} / {:.2f} GB".format(
+                self.__processed_bytes / 10**9, self.__total_bytes / 10**9
+            )
+        )
+        self.__file_progress_label.setText(
+            "{} / {} files".format(self.__processed_files, self.__total_files)
+        )
         self.__speed_label.setText(self.speed)
-        self.__eta_label.setText(str(self.__eta).split('.')[0])  # split ETA string on microsecond separator if present
+        self.__eta_label.setText(
+            str(self.__eta).split(".")[0]
+        )  # split ETA string on microsecond separator if present
 
         if self.__aff4_verify:
             self.__show_log_button.setHidden(not self.__finished)
@@ -176,7 +203,9 @@ class VolumeProgress(QtWidgets.QWidget):
             self.__previous_bytes_granular = self.__processed_bytes
 
             # Use previously calculated deltas to establish speed and ETA
-            elapsed_seconds = delta_time.total_seconds() + delta_time.microseconds / 10 ** 6
+            elapsed_seconds = (
+                delta_time.total_seconds() + delta_time.microseconds / 10**6
+            )
             try:
                 self.__speed = delta_bytes / elapsed_seconds  # In bytes
                 remaining_bytes = self.__total_bytes - self.processed_bytes
@@ -201,11 +230,11 @@ class VolumeProgress(QtWidgets.QWidget):
     @property
     def speed(self):
         bytes_per_seconds = self.__speed
-        if bytes_per_seconds >= 10 ** 9:
+        if bytes_per_seconds >= 10**9:
             return f"{bytes_per_seconds / 10 ** 9:.2f} GB/s"
-        elif bytes_per_seconds >= 10 ** 6:
+        elif bytes_per_seconds >= 10**6:
             return f"{bytes_per_seconds / 10 ** 6:.2f} MB/s"
-        elif bytes_per_seconds >= 10 ** 3:
+        elif bytes_per_seconds >= 10**3:
             return f"{bytes_per_seconds / 10 ** 3:.2f} KB/s"
         else:
             return f"{float(bytes_per_seconds):.2f} Bytes/s"
@@ -246,27 +275,31 @@ class VolumeProgress(QtWidgets.QWidget):
             return self.__current_file
         else:
             return f"{self.current_file[:25]}...{self.__current_file[-25:]}"
-    
+
     @property
     def volume(self):
         return self.__volume_name
 
     @volume.setter
     def volume(self, volume):
-        raise PermissionError('The Volume associated to a widget cannot be changed after the widget creation!')
+        raise PermissionError(
+            "The Volume associated to a widget cannot be changed after the widget creation!"
+        )
 
     def __open_folder(self):
         if self.__aff4_verify:
-            webbrowser.open(f'file://{os.path.dirname(self.__volume_name)}')
+            webbrowser.open(f"file://{os.path.dirname(self.__volume_name)}")
         else:
-            webbrowser.open(f'file://{self.__volume_name}')
+            webbrowser.open(f"file://{self.__volume_name}")
 
     def write_log(self, log: str):
         self.__log += log
 
     def __show_log(self):
-        self.log_dialog = LogDialog(self, f'Verification Log for {self.volume}', self.__log)
-        self.log_dialog.setWindowFlags(QtCore.Qt.CustomizeWindowHint|QtCore.Qt.Dialog)
+        self.log_dialog = LogDialog(
+            self, f"Verification Log for {self.volume}", self.__log
+        )
+        self.log_dialog.setWindowFlags(QtCore.Qt.CustomizeWindowHint | QtCore.Qt.Dialog)
         self.log_dialog.setModal(True)
         self.log_dialog.setWindowModality(QtCore.Qt.ApplicationModal)
         self.log_dialog.open()
@@ -275,19 +308,40 @@ class VolumeProgress(QtWidgets.QWidget):
         self.__finished = finished
         self.__update_ui()
 
+
 class ProgressWindow(QtWidgets.QDialog):
-    STATUSES = ('copying', 'hashing', 'end', 'cancel', 'verifying', 'end_verify', 'cancel_verify')
+    STATUSES = (
+        "copying",
+        "hashing",
+        "end",
+        "cancel",
+        "verifying",
+        "end_verify",
+        "cancel_verify",
+    )
     DESCRIPTIONS = {
-        'copying': 'Writing to Device, hashing source on the fly',
-        'hashing': 'Verifying data written to device',
-        'end': 'Copy and verification finished',
-        'cancel': 'File copy has been interrupted',
-        'verifying': 'Verifying integrity of container',
-        'end_verify': 'Container verification finished',
-        'cancel_verify': 'Container verification aborted',
+        "copying": "Writing to Device, hashing source on the fly",
+        "hashing": "Verifying data written to device",
+        "end": "Copy and verification finished",
+        "cancel": "File copy has been interrupted",
+        "verifying": "Verifying integrity of container",
+        "end_verify": "Container verification finished",
+        "cancel_verify": "Container verification aborted",
     }
 
-    def __init__(self, parent: QtWidgets.QWidget, src: str, dst: list = [], hash_algos: list = [], total_files: int = 0, total_bytes: int = 0, metadata: list = [], aff4: bool = False, aff4_filename: str = "", aff4_verify: bool = False):
+    def __init__(
+        self,
+        parent: QtWidgets.QWidget,
+        src: str,
+        dst: list = [],
+        hash_algos: list = [],
+        total_files: int = 0,
+        total_bytes: int = 0,
+        metadata: list = [],
+        aff4: bool = False,
+        aff4_filename: str = "",
+        aff4_verify: bool = False,
+    ):
         super().__init__(parent=parent)
 
         # Labels
@@ -312,11 +366,17 @@ class ProgressWindow(QtWidgets.QDialog):
 
         for destination in dst:
             if aff4:
-                self.volume_progresses.append(VolumeProgress(destination, total_bytes, total_files, aff4_filename))
+                self.volume_progresses.append(
+                    VolumeProgress(destination, total_bytes, total_files, aff4_filename)
+                )
             else:
-                self.volume_progresses.append(VolumeProgress(destination, total_bytes, total_files))
+                self.volume_progresses.append(
+                    VolumeProgress(destination, total_bytes, total_files)
+                )
         if aff4_verify:
-            self.volume_progresses.append(VolumeProgress(src, total_bytes, total_files, aff4_verify=True))
+            self.volume_progresses.append(
+                VolumeProgress(src, total_bytes, total_files, aff4_verify=True)
+            )
 
         self.layout = QtWidgets.QVBoxLayout()
         self.layout2 = QtWidgets.QHBoxLayout()
@@ -343,7 +403,11 @@ class ProgressWindow(QtWidgets.QDialog):
         if self.aff4:
             self.base_path = self.aff4_filename
         else:
-            self.base_path = path.basename(path.normpath(src)) if path.basename(path.normpath(src)) != '' else '[root]'
+            self.base_path = (
+                path.basename(path.normpath(src))
+                if path.basename(path.normpath(src)) != ""
+                else "[root]"
+            )
 
         self.processed_files = 0
         self.status = ProgressWindow.STATUSES[0]
@@ -351,11 +415,24 @@ class ProgressWindow(QtWidgets.QDialog):
 
         # Start copying files
         if not aff4_verify:
-            self.thread = CopyThread(src, dst, hash_algos, total_files, total_bytes, metadata, aff4, aff4_filename)
-            self.thread.copy_progress.connect(self.update_progress, QtCore.Qt.QueuedConnection)
+            self.thread = CopyThread(
+                src,
+                dst,
+                hash_algos,
+                total_files,
+                total_bytes,
+                metadata,
+                aff4,
+                aff4_filename,
+            )
+            self.thread.copy_progress.connect(
+                self.update_progress, QtCore.Qt.QueuedConnection
+            )
         else:
             self.thread = VerifyThread(src, total_files, total_bytes)
-            self.thread.verify_progress.connect(self.update_progress, QtCore.Qt.QueuedConnection)
+            self.thread.verify_progress.connect(
+                self.update_progress, QtCore.Qt.QueuedConnection
+            )
 
     def start_tasks(self):
         self.thread.start()
@@ -370,9 +447,13 @@ class ProgressWindow(QtWidgets.QDialog):
 
         status = progress.status
         if status == -1:
-            self.status = 'cancel'
+            self.status = "cancel"
             self.update_ui()
-            error_box(self, "Halp! An Error Occurred!", f"Bob is Sad T.T\n\nDetails:\n{progress.payload}")
+            error_box(
+                self,
+                "Halp! An Error Occurred!",
+                f"Bob is Sad T.T\n\nDetails:\n{progress.payload}",
+            )
             return
 
         data = progress.payload
@@ -383,17 +464,19 @@ class ProgressWindow(QtWidgets.QDialog):
                 # (eg. parallel or current drive for serial)
                 if volume_progress.volume in data:
                     progress_status = data[volume_progress.volume]
-                    volume_progress.processed_bytes = progress_status['processed_bytes']
-                    volume_progress.processed_files = progress_status['processed_files']
-                    volume_progress.current_file = progress_status['current_file']
-                    volume_progress.status = progress_status['status']
-                    log = progress_status.get('log', None)  # Support for ephemeral AFF4 verification log
+                    volume_progress.processed_bytes = progress_status["processed_bytes"]
+                    volume_progress.processed_files = progress_status["processed_files"]
+                    volume_progress.current_file = progress_status["current_file"]
+                    volume_progress.status = progress_status["status"]
+                    log = progress_status.get(
+                        "log", None
+                    )  # Support for ephemeral AFF4 verification log
                     if log:
                         volume_progress.write_log(log)
                 else:
                     # If volume is not in data dictionary it means and error happened during the copy
                     # and it was removed from the destinations list
-                    volume_progress.status = 'error_copy'
+                    volume_progress.status = "error_copy"
         else:
             for volume_progress in self.volume_progresses:
                 volume_progress.isFinished(True)
@@ -402,7 +485,7 @@ class ProgressWindow(QtWidgets.QDialog):
 
     def update_ui(self):
         self.status_label.setText(self.DESCRIPTIONS[self.status])
-        if self.status in ('end', 'cancel', 'end_verify', 'cancel_verify'):
+        if self.status in ("end", "cancel", "end_verify", "cancel_verify"):
             self.close_button.setHidden(False)
             self.cancel_button.setHidden(True)
 
@@ -414,12 +497,14 @@ class ProgressWindow(QtWidgets.QDialog):
         base_path = self.base_path
         for dst in self.dst:
             try:
-                report_file_path = path.join(dst, f'{base_path}_copy_report.txt')
-                with open(report_file_path, "a", encoding='utf-8') as report_file:
-                    report_file.write(f"\nUser interrupted copy process at: {datetime.now().isoformat()}")
+                report_file_path = path.join(dst, f"{base_path}_copy_report.txt")
+                with open(report_file_path, "a", encoding="utf-8") as report_file:
+                    report_file.write(
+                        f"\nUser interrupted copy process at: {datetime.now().isoformat()}"
+                    )
             except FileNotFoundError as error:
                 print(f"Error writing to report: {error}")
-                error_box(self, 'Error Writing to Report', error)
+                error_box(self, "Error Writing to Report", error)
         self.update_ui()
 
 
@@ -450,7 +535,10 @@ def is_portable():
     macos_path = Path(r"/Applications/gemino.app")
     windows_path = Path(r"C:\Program Files (x86)\gemino")
     application_path = Path(QtCore.QCoreApplication.applicationDirPath())
-    if macos_path in application_path.parents or windows_path in application_path.parents:
+    if (
+        macos_path in application_path.parents
+        or windows_path in application_path.parents
+    ):
         return False
     return True
 
@@ -466,16 +554,26 @@ class MainWidget(QtWidgets.QWidget):
         # App default configuration via file
         # Ini files with settings that will be imposed and will not be changeable by user.
         self.managed_settings = None
-        self.managed_logo = None                # interface/logo        -> If set logo will be displayed in interface
-        self.managed_algorithms = None          # hashing/algorithms    -> If set forces the usage of algorithms included in comma separated list
-        self.managed_destinations_aff4 = None   # destinations/aff4     -> If true forces the creation of AFF4 images
-        self.managed_destinations_drives = None # destinations/drives   -> If false disables the drives box
+        self.managed_logo = (
+            None  # interface/logo        -> If set logo will be displayed in interface
+        )
+        self.managed_algorithms = None  # hashing/algorithms    -> If set forces the usage of algorithms included in comma separated list
+        self.managed_destinations_aff4 = (
+            None  # destinations/aff4     -> If true forces the creation of AFF4 images
+        )
+        self.managed_destinations_drives = (
+            None  # destinations/drives   -> If false disables the drives box
+        )
         if os.path.exists("config.ini"):
-            self.managed_settings = QtCore.QSettings("config.ini", QtCore.QSettings.IniFormat)
+            self.managed_settings = QtCore.QSettings(
+                "config.ini", QtCore.QSettings.IniFormat
+            )
             self.managed_logo = self.managed_settings.value("interface/logo", None)
             if self.managed_logo is not None and not os.path.exists(self.managed_logo):
                 self.managed_logo = None
-            self.managed_algorithms = self.managed_settings.value("hashing/algorithms", None)
+            self.managed_algorithms = self.managed_settings.value(
+                "hashing/algorithms", None
+            )
             if self.managed_algorithms is not None:
                 try:
                     assert isinstance(self.managed_algorithms, list)
@@ -485,18 +583,28 @@ class MainWidget(QtWidgets.QWidget):
                         managed_algorithms = [self.managed_algorithms]
                     else:
                         managed_algorithms = None
-                if managed_algorithms is not None:  # if wrong value supplied keep none and do not force set empty list.
+                if (
+                    managed_algorithms is not None
+                ):  # if wrong value supplied keep none and do not force set empty list.
                     allowed_algorithms = ["md5", "sha1", "sha256"]
                     self.managed_algorithms = []
                     for algorithm in managed_algorithms:
                         if algorithm in allowed_algorithms:
                             self.managed_algorithms.append(algorithm)
-            self.managed_destinations_aff4 = self.managed_settings.value("destinations/aff4", None)
+            self.managed_destinations_aff4 = self.managed_settings.value(
+                "destinations/aff4", None
+            )
             if self.managed_destinations_aff4 is not None:
-                self.managed_destinations_aff4 = self.managed_destinations_aff4.lower() == 'true'
-            self.managed_destinations_drives = self.managed_settings.value("destinations/drives", None)
+                self.managed_destinations_aff4 = (
+                    self.managed_destinations_aff4.lower() == "true"
+                )
+            self.managed_destinations_drives = self.managed_settings.value(
+                "destinations/drives", None
+            )
             if self.managed_destinations_drives is not None:
-                self.managed_destinations_drives = self.managed_destinations_drives.lower() == 'true'
+                self.managed_destinations_drives = (
+                    self.managed_destinations_drives.lower() == "true"
+                )
 
         # Instantiate Widgets
         # Source Dir
@@ -508,11 +616,17 @@ class MainWidget(QtWidgets.QWidget):
         self.src_dir_dialog_button = QtWidgets.QPushButton("Choose Source Folder")
         self.src_dir_dialog_button.clicked.connect(self.open_files)
         self.src_dir_label = QtWidgets.QLabel("No Directory Selected")
-        self.src_dir_label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.src_dir_label.setTextInteractionFlags(
+            QtCore.Qt.TextInteractionFlag.TextSelectableByMouse
+        )
         self.files_count_label = QtWidgets.QLabel("0 Files")
-        self.files_count_label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.files_count_label.setTextInteractionFlags(
+            QtCore.Qt.TextInteractionFlag.TextSelectableByMouse
+        )
         self.size_label = QtWidgets.QLabel("0 GB")
-        self.size_label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.size_label.setTextInteractionFlags(
+            QtCore.Qt.TextInteractionFlag.TextSelectableByMouse
+        )
         # Destination Dir
         self.dst_vbar = QtWidgets.QFrame()
         self.dst_vbar.setFrameShape(QtWidgets.QFrame.VLine)
@@ -525,8 +639,12 @@ class MainWidget(QtWidgets.QWidget):
         self.dst_dir_dialog_button = QtWidgets.QPushButton("Choose Destination Folder")
         self.dst_dir_dialog_button.clicked.connect(self.select_dst_folder)
         self.dst_dir_label = QtWidgets.QLabel("No Directory Selected")
-        self.dst_dir_label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
-        self.dst_dir_information_label = QtWidgets.QLabel("Select a destination folder to view storage details")
+        self.dst_dir_label.setTextInteractionFlags(
+            QtCore.Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        self.dst_dir_information_label = QtWidgets.QLabel(
+            "Select a destination folder to view storage details"
+        )
         # Drive buttons
         self.select_all_button = QtWidgets.QPushButton("Select All Drives")
         self.select_all_button.clicked.connect(self.select_all)
@@ -559,7 +677,9 @@ class MainWidget(QtWidgets.QWidget):
         # AFF4 Support
         self.aff4_checkbox = QtWidgets.QCheckBox("Write to AFF4 Container", self)
         self.aff4_checkbox.stateChanged.connect(self.toggle_aff4_filename)
-        self.aff4_filename_label = QtWidgets.QLabel("AFF4 Container Filename (w/o extension):")
+        self.aff4_filename_label = QtWidgets.QLabel(
+            "AFF4 Container Filename (w/o extension):"
+        )
         self.aff4_filename = QtWidgets.QLineEdit()
         self.toggle_aff4_filename()
         if self.managed_destinations_aff4 is not None:
@@ -574,11 +694,17 @@ class MainWidget(QtWidgets.QWidget):
             pixmap = QtGui.QPixmap(self.managed_logo)
             self.logo_label = QtWidgets.QLabel()
             self.logo_label.setPixmap(pixmap.scaledToHeight(150))
-            self.window_layout.addWidget(self.logo_label, alignment=QtCore.Qt.AlignCenter)
+            self.window_layout.addWidget(
+                self.logo_label, alignment=QtCore.Qt.AlignCenter
+            )
         if self.managed_settings is not None:
-            self.managed_settings_label = QtWidgets.QLabel("Some of these settings may be managed by your organization.")
+            self.managed_settings_label = QtWidgets.QLabel(
+                "Some of these settings may be managed by your organization."
+            )
             self.managed_settings_label.setDisabled(True)
-            self.window_layout.addWidget(self.managed_settings_label, alignment=QtCore.Qt.AlignCenter)
+            self.window_layout.addWidget(
+                self.managed_settings_label, alignment=QtCore.Qt.AlignCenter
+            )
         self.layout = QtWidgets.QHBoxLayout()
         self.window_layout.addLayout(self.layout)
         self.left_layout = QtWidgets.QVBoxLayout()
@@ -644,8 +770,11 @@ class MainWidget(QtWidgets.QWidget):
 
     def get_volumes(self):
         # Only Store Volumes in ready state and exclude main system disk
-        self.volumes = [volume for volume in QtCore.QStorageInfo.mountedVolumes() if
-                        (not volume.isRoot() and volume.isReady())]
+        self.volumes = [
+            volume
+            for volume in QtCore.QStorageInfo.mountedVolumes()
+            if (not volume.isRoot() and volume.isReady())
+        ]
 
     def populate_volumes_widget(self):
         self.volumes_list.clear()
@@ -654,11 +783,13 @@ class MainWidget(QtWidgets.QWidget):
         for volume in self.volumes:
             if not volume.isReadOnly() and volume.bytesFree() > self.dir_size:
                 item = QtWidgets.QListWidgetItem(
-                    "{} - {} - {} - {} - {:.2f} GB Free".format(volume.rootPath(),
-                                                                volume.name(),
-                                                                volume.device().data().decode(),
-                                                                volume.fileSystemType().data().decode(),
-                                                                volume.bytesFree() / 10 ** 9)
+                    "{} - {} - {} - {} - {:.2f} GB Free".format(
+                        volume.rootPath(),
+                        volume.name(),
+                        volume.device().data().decode(),
+                        volume.fileSystemType().data().decode(),
+                        volume.bytesFree() / 10**9,
+                    )
                 )
                 item.setData(256, volume)
                 self.volumes_list.addItem(item)
@@ -672,8 +803,9 @@ class MainWidget(QtWidgets.QWidget):
                     "{} - {} - {:.2f} GB Free - ! {} !".format(
                         volume.name(),
                         volume.fileSystemType().data().decode(),
-                        volume.bytesFree() / 10 ** 9,
-                        ", ".join(errors))
+                        volume.bytesFree() / 10**9,
+                        ", ".join(errors),
+                    )
                 )
                 item.setData(256, volume)
                 item.setForeground(QtGui.QColor(255, 0, 0))
@@ -685,7 +817,7 @@ class MainWidget(QtWidgets.QWidget):
         self.populate_volumes_widget()
 
     def start_copy(self):
-        if not hasattr(self, 'source_dir') or not self.source_dir:
+        if not hasattr(self, "source_dir") or not self.source_dir:
             error_box(self, "No Directory Selected")
             return
 
@@ -697,38 +829,67 @@ class MainWidget(QtWidgets.QWidget):
             self.settings.sync()
 
         # Launch Copy
-        hash_algos = [hash_algo.text() for hash_algo in self.hashing_algos.buttons() if hash_algo.isChecked()]
-        dst_volumes = [item.data(256).rootPath() for item in self.volumes_list.selectedItems() if
-                       not item.data(256).isReadOnly() and item.data(256).bytesFree() > self.dir_size]
+        hash_algos = [
+            hash_algo.text()
+            for hash_algo in self.hashing_algos.buttons()
+            if hash_algo.isChecked()
+        ]
+        dst_volumes = [
+            item.data(256).rootPath()
+            for item in self.volumes_list.selectedItems()
+            if not item.data(256).isReadOnly()
+            and item.data(256).bytesFree() > self.dir_size
+        ]
         if self.dst_folder:
             dst_folder_storage_info = QtCore.QStorageInfo(self.dst_folder)
             dst_folder_writable = os.access(self.dst_folder, os.W_OK)
-            if dst_folder_storage_info.isReady() and dst_folder_writable and dst_folder_storage_info.bytesFree() > self.dir_size:
+            if (
+                dst_folder_storage_info.isReady()
+                and dst_folder_writable
+                and dst_folder_storage_info.bytesFree() > self.dir_size
+            ):
                 dst_volumes.append(self.dst_folder)
 
         if self.aff4_checkbox.isChecked() and len(dst_volumes) > 1:
-            #error_box("Writing to Multiple Destinations When Using AFF4 Creates Container Files With Different Hashes.\n\n"
+            # error_box("Writing to Multiple Destinations When Using AFF4 Creates Container Files With Different Hashes.\n\n"
             #          "You will have to verify the content of the AFF4 containers when comparing containers and not the container itself.\n")
             error_box(self, "Only One Destination Supported When Using AFF4 Containers")
             return
 
         if self.aff4_checkbox.isChecked():
-            error_box(self, "Containers in AFF4 format are compliant with standard but might not be recognized by all forensic tools.\n"
-                      "If your tool does not support AFF4-L or is unable to process, import the container as a zip file.")
+            error_box(
+                self,
+                "Containers in AFF4 format are compliant with standard but might not be recognized by all forensic tools.\n"
+                "If your tool does not support AFF4-L or is unable to process, import the container as a zip file.",
+            )
 
         dst_volumes = self.check_existing(dst_volumes)
         dst_volumes = self.normalize_paths(dst_volumes)
 
         if dst_volumes:
             # At least one drive selected and writable
-            self.progress = ProgressWindow(self, self.source_dir, dst_volumes, hash_algos, self.files_count, self.dir_size,
-                                      self.metadata, self.aff4_checkbox.isChecked(), self.aff_filename)
-            self.progress.setWindowFlags(QtCore.Qt.CustomizeWindowHint|QtCore.Qt.Dialog)
+            self.progress = ProgressWindow(
+                self,
+                self.source_dir,
+                dst_volumes,
+                hash_algos,
+                self.files_count,
+                self.dir_size,
+                self.metadata,
+                self.aff4_checkbox.isChecked(),
+                self.aff_filename,
+            )
+            self.progress.setWindowFlags(
+                QtCore.Qt.CustomizeWindowHint | QtCore.Qt.Dialog
+            )
             self.progress.setWindowModality(QtCore.Qt.ApplicationModal)
             self.progress.open()
             self.progress.start_tasks()
         else:
-            error_box(self, "No writable/valid drive selected or all destinations have been skipped!")
+            error_box(
+                self,
+                "No writable/valid drive selected or all destinations have been skipped!",
+            )
 
     # TODO - If AFF4 -> Check if same filename exists and not if folder is empty.
     def check_existing(self, volumes):
@@ -764,8 +925,11 @@ class MainWidget(QtWidgets.QWidget):
 
     @property
     def src_base_path(self):
-        base_path = path.basename(path.normpath(self.source_dir)) if path.basename(
-            path.normpath(self.source_dir)) != '' else '[root]'
+        base_path = (
+            path.basename(path.normpath(self.source_dir))
+            if path.basename(path.normpath(self.source_dir)) != ""
+            else "[root]"
+        )
         return base_path
 
     def normalize_paths(self, destinations: list):
@@ -793,9 +957,9 @@ class MainWidget(QtWidgets.QWidget):
     def init_hashing_widgets(self):
         # Hash Related Widgets
         hash_algos = {
-            'md5': None,
-            'sha1': None,
-            'sha256': None,
+            "md5": None,
+            "sha1": None,
+            "sha256": None,
         }
         if self.managed_algorithms is not None:
             for hash_algo in hash_algos:
@@ -805,13 +969,19 @@ class MainWidget(QtWidgets.QWidget):
                 stored_setting = self.settings.value(hash_algo)
                 if isinstance(stored_setting, str):
                     # Windows returns a string
-                    hash_algos[hash_algo] = (stored_setting == 'true') if stored_setting is not None else True
+                    hash_algos[hash_algo] = (
+                        (stored_setting == "true")
+                        if stored_setting is not None
+                        else True
+                    )
                 else:
                     # macOS, returns a Boolean
-                    hash_algos[hash_algo] = bool(stored_setting) if stored_setting is not None else True
+                    hash_algos[hash_algo] = (
+                        bool(stored_setting) if stored_setting is not None else True
+                    )
         else:
             # By default use only MD5
-            hash_algos = {'md5': True, 'sha1': False, 'sha256': False}
+            hash_algos = {"md5": True, "sha1": False, "sha256": False}
 
         self.hash_label = QtWidgets.QLabel("Hashing Algorithms: ")
         self.md5_checkbox = QtWidgets.QCheckBox("md5", self)
@@ -836,9 +1006,11 @@ class MainWidget(QtWidgets.QWidget):
         self.aff4_filename.setDisabled(not self.aff4_checkbox.isChecked())
 
     def open_files(self):
-        directory = ''
+        directory = ""
         try:
-            directory = QtCore.QStandardPaths.standardLocations(QtCore.QStandardPaths.HomeLocation)[0]
+            directory = QtCore.QStandardPaths.standardLocations(
+                QtCore.QStandardPaths.HomeLocation
+            )[0]
         except:
             pass
         self.src_dir_dialog.setDirectory(directory)
@@ -846,14 +1018,18 @@ class MainWidget(QtWidgets.QWidget):
         self.source_dir: str = None
         if accepted:
             self.source_dir = self.src_dir_dialog.selectedFiles()[0]
-        self.src_dir_label.setText(self.source_dir if self.source_dir else "No Directory Selected")
+        self.src_dir_label.setText(
+            self.source_dir if self.source_dir else "No Directory Selected"
+        )
         if self.source_dir:
             self.get_size()
 
     def select_dst_folder(self):
-        directory = ''
+        directory = ""
         try:
-            directory = QtCore.QStandardPaths.standardLocations(QtCore.QStandardPaths.HomeLocation)[0]
+            directory = QtCore.QStandardPaths.standardLocations(
+                QtCore.QStandardPaths.HomeLocation
+            )[0]
         except:
             pass
         self.dst_dir_dialog.setDirectory(directory)
@@ -861,9 +1037,13 @@ class MainWidget(QtWidgets.QWidget):
         self.dst_folder: str = None
         if accepted:
             self.dst_folder = self.dst_dir_dialog.selectedFiles()[0]
-        self.dst_dir_label.setText(self.dst_folder if self.dst_folder else "No Directory Selected")
+        self.dst_dir_label.setText(
+            self.dst_folder if self.dst_folder else "No Directory Selected"
+        )
         if not self.dst_folder:
-            self.dst_dir_information_label.setText("Select a destination folder to view storage details")
+            self.dst_dir_information_label.setText(
+                "Select a destination folder to view storage details"
+            )
         self.dst_folder_check()
 
     def select_all(self):
@@ -876,19 +1056,21 @@ class MainWidget(QtWidgets.QWidget):
         # Create Loading Modal
         self.loading = LoadingDialog()
         self.loading.setModal(True)
-        self.loading.setWindowFlags(QtCore.Qt.CustomizeWindowHint|QtCore.Qt.Dialog)
+        self.loading.setWindowFlags(QtCore.Qt.CustomizeWindowHint | QtCore.Qt.Dialog)
         self.loading.show()
 
         # Start Calculating size & File count
         self.thread = SizeCalcThread(self.source_dir)
-        self.thread.data_ready.connect(self.size_calc_handle, QtCore.Qt.QueuedConnection)
+        self.thread.data_ready.connect(
+            self.size_calc_handle, QtCore.Qt.QueuedConnection
+        )
         self.thread.start()
 
     def size_calc_handle(self, data):
         # Unpack Result
         self.dir_size, self.files_count = data
 
-        self.size_label.setText("{:.2f} GB".format(self.dir_size / 10 ** 9))
+        self.size_label.setText("{:.2f} GB".format(self.dir_size / 10**9))
         self.files_count_label.setText("{} Files".format(self.files_count))
         self.populate_volumes_widget()
 
@@ -903,15 +1085,22 @@ class MainWidget(QtWidgets.QWidget):
             dst_folder_writable = os.access(self.dst_folder, os.W_OK)
             if dst_bytes_available > self.dir_size:
                 # Enough space available on destination
-                self.dst_dir_information_label.setText("Enough space available on destination")
+                self.dst_dir_information_label.setText(
+                    "Enough space available on destination"
+                )
             else:
-                self.dst_dir_information_label.setText("NOT Enough space available on destination")
+                self.dst_dir_information_label.setText(
+                    "NOT Enough space available on destination"
+                )
 
             if dst_folder_writable and dst_storage_info.bytesFree() > self.dir_size:
                 self.dst_dir_information_label.setText(
-                    "On volume: {} - {} - {:.2f} GB Free".format(dst_storage_info.name(),
-                                                                 dst_storage_info.fileSystemType().data().decode(),
-                                                                 dst_storage_info.bytesFree() / 10 ** 9))
+                    "On volume: {} - {} - {:.2f} GB Free".format(
+                        dst_storage_info.name(),
+                        dst_storage_info.fileSystemType().data().decode(),
+                        dst_storage_info.bytesFree() / 10**9,
+                    )
+                )
             else:
                 errors = []
                 if not dst_folder_writable:
@@ -922,24 +1111,25 @@ class MainWidget(QtWidgets.QWidget):
                     "On volume: {} - {} - {:.2f} GB Free - ! {} !".format(
                         dst_storage_info.name(),
                         dst_storage_info.fileSystemType().data().decode(),
-                        dst_storage_info.bytesFree() / 10 ** 9,
-                        ", ".join(errors))
+                        dst_storage_info.bytesFree() / 10**9,
+                        ", ".join(errors),
+                    )
                 )
                 # self.dst_dir_information_label.setTextColor(QtGui.QColor(255, 0, 0))
 
     @property
     def metadata(self):
         return {
-            'operator': self.operator_name_text_field.text(),
-            'intake': self.intake_number_text_field.text(),
-            'notes': self.notes_text_field.toPlainText(),
+            "operator": self.operator_name_text_field.text(),
+            "intake": self.intake_number_text_field.text(),
+            "notes": self.notes_text_field.toPlainText(),
         }
 
     def confirm_overwrite(self, path):
         if self.aff4_checkbox.isChecked():
-            message = f'Container: {path} already exists and will be overwritten.\n\nDo you want to continue?'
+            message = f"Container: {path} already exists and will be overwritten.\n\nDo you want to continue?"
         else:
-            message = f'Directory: {path} is not empty.\nData contained may be overwritten without additional confirmation.\n\nDo you want to continue?'
+            message = f"Directory: {path} is not empty.\nData contained may be overwritten without additional confirmation.\n\nDo you want to continue?"
         confirmation = QtWidgets.QMessageBox(self)
         confirmation.setIcon(QtWidgets.QMessageBox.Warning)
         confirmation.setText(message)
@@ -987,7 +1177,9 @@ class MainWindow(QtWidgets.QMainWindow):
         message.setText("gemino")
         message.setInformativeText(
             "gemino\n\nForensic logical imager and file duplicator\n\nv{} - May 2023\n\nDeveloped with ❤️ by Francesco Servida beside work at:\n - University of Lausanne\n - United Nations Investigative Team for Accountability of crimes committed by Da’esh/ISIL (UNITAD)\n\nLicensed under GPLv3\nhttps://opensource.org/licenses/GPL-3.0".format(
-                self.version))
+                self.version
+            )
+        )
         message.setWindowTitle("About")
         message.setStandardButtons(QtWidgets.QMessageBox.Ok)
         message.exec()
@@ -999,9 +1191,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.src_container.setFileMode(QtWidgets.QFileDialog.ExistingFile)
         self.src_container.setNameFilter("AFF4 Images (*.aff4)")
         self.src_container.setWindowModality(QtCore.Qt.WindowModal)
-        directory = ''
+        directory = ""
         try:
-            directory = QtCore.QStandardPaths.standardLocations(QtCore.QStandardPaths.HomeLocation)[0]
+            directory = QtCore.QStandardPaths.standardLocations(
+                QtCore.QStandardPaths.HomeLocation
+            )[0]
         except:
             pass
         self.src_container.setDirectory(directory)
@@ -1013,14 +1207,27 @@ class MainWindow(QtWidgets.QMainWindow):
         if src_container_path:
             try:
                 total_files, total_size = get_metadata(src_container_path)
-                self.progress = ProgressWindow(self, src_container_path, total_files=total_files, total_bytes=total_size, aff4_verify=True)
-                self.progress.setWindowFlags(QtCore.Qt.CustomizeWindowHint|QtCore.Qt.Dialog)
+                self.progress = ProgressWindow(
+                    self,
+                    src_container_path,
+                    total_files=total_files,
+                    total_bytes=total_size,
+                    aff4_verify=True,
+                )
+                self.progress.setWindowFlags(
+                    QtCore.Qt.CustomizeWindowHint | QtCore.Qt.Dialog
+                )
                 self.progress.setModal(True)
                 self.progress.setWindowModality(QtCore.Qt.ApplicationModal)
                 self.progress.open()
                 self.progress.start_tasks()
             except Exception as e:
-                error_box(self, "Unable to Verify", "An error occurred while opening the container", str(e))
+                error_box(
+                    self,
+                    "Unable to Verify",
+                    "An error occurred while opening the container",
+                    str(e),
+                )
                 pass
         else:
             pass
