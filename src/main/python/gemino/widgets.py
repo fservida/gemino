@@ -1,3 +1,6 @@
+import pprint
+import traceback
+
 from PySide6 import QtWidgets, QtCore, QtGui
 from datetime import datetime, timedelta
 import webbrowser
@@ -8,7 +11,8 @@ from pathlib import Path
 from .utils import SizeCalcThread
 from .copy.utils import ProgressData
 from .copy.logical.copy import CopyThread, VerifyThread
-from .copy.logical.aff4 import get_metadata
+from .copy.logical.aff4 import get_container_summary, get_metadata
+from .view.advanced import AdvancedWidget
 
 # Typing assignment for easier code navigation
 ProgressTuple = tuple[int, dict[str, dict]]
@@ -504,7 +508,7 @@ class ProgressWindow(QtWidgets.QDialog):
                     )
             except FileNotFoundError as error:
                 print(f"Error writing to report: {error}")
-                error_box(self, "Error Writing to Report", error)
+                error_box(self, "Error Writing to Report", traceback.format_exc())
         self.update_ui()
 
 
@@ -1170,6 +1174,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tools.addAction(self.verify_menu)
         self.bar = bar
 
+        self.advanced_menu = QtGui.QAction("Switch to Advanced Interface")
+        self.advanced_menu.triggered.connect(self.advanced_window_open)
+        self.tools.addAction(self.advanced_menu)
+
     def about_box(self):
         message = QtWidgets.QMessageBox(self)
         message.setWindowModality(QtCore.Qt.WindowModal)
@@ -1183,6 +1191,45 @@ class MainWindow(QtWidgets.QMainWindow):
         message.setWindowTitle("About")
         message.setStandardButtons(QtWidgets.QMessageBox.Ok)
         message.exec()
+
+    def advanced_window_open(self):
+        self.bar.setDisabled(True)
+        self.src_container = QtWidgets.QFileDialog(self)
+        self.src_container.setWindowTitle("Select AFF4 Container to Verify")
+        self.src_container.setFileMode(QtWidgets.QFileDialog.ExistingFile)
+        self.src_container.setNameFilter("AFF4 Images (*.aff4)")
+        self.src_container.setWindowModality(QtCore.Qt.WindowModal)
+        directory = ""
+        try:
+            directory = QtCore.QStandardPaths.standardLocations(
+                QtCore.QStandardPaths.HomeLocation
+            )[0]
+        except:
+            pass
+        self.src_container.setDirectory(directory)
+        accepted = self.src_container.exec()
+        self.bar.setDisabled(False)
+        src_container_path: str = None
+        if accepted:
+            src_container_path = self.src_container.selectedFiles()[0]
+        if src_container_path:
+            try:
+                volume, items = get_metadata(src_container_path)
+                self.advanced_widget = AdvancedWidget(self, volume, items)
+                self.setCentralWidget(self.advanced_widget)
+                self.resize(1200, 800)
+            except Exception as e:
+                error_box(
+                    self,
+                    "Unable to Open",
+                    "An error occurred while opening the container",
+                    traceback.format_exc(),
+                )
+                pass
+        else:
+            pass
+
+        # self.resize(1200, 800)
 
     def verify_aff4(self):
         self.bar.setDisabled(True)
@@ -1206,7 +1253,7 @@ class MainWindow(QtWidgets.QMainWindow):
             src_container_path = self.src_container.selectedFiles()[0]
         if src_container_path:
             try:
-                total_files, total_size = get_metadata(src_container_path)
+                total_files, total_size = get_container_summary(src_container_path)
                 self.progress = ProgressWindow(
                     self,
                     src_container_path,
@@ -1226,7 +1273,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     self,
                     "Unable to Verify",
                     "An error occurred while opening the container",
-                    str(e),
+                    traceback.format_exc(),
                 )
                 pass
         else:

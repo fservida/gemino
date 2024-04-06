@@ -8,6 +8,8 @@ __pycache__/
 venv*
 test/
 
+.vscode/
+
 *.provisionprofile
 *.p12
 

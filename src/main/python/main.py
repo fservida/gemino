@@ -1,4 +1,5 @@
 from PySide6.QtWidgets import QApplication
+import traceback
 
 import sys
 
@@ -20,7 +21,10 @@ if __name__ == "__main__":
         window.resize(800, 600)
         window.show()
         error_box(
-            window, "Error", "An Error Occurred and the Application Crashed", str(e)
+            window,
+            "Error",
+            "An Error Occurred and the Application Crashed",
+            traceback.format_exc(),
         )
         app.exec()
     sys.exit(exit_code)

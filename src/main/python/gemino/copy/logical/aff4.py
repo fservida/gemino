@@ -3,6 +3,10 @@
 from pyaff4 import utils, rdfvalue, escaping, lexicon, zip, container
 from pyaff4.aff4 import ProgressContext
 from past.utils import old_div
+from dataclasses import dataclass
+from urllib.parse import unquote
+
+
 from ..utils import ProgressData
 
 
@@ -74,7 +78,7 @@ def trimVolume(volume, image):
     return imagestring
 
 
-def get_metadata(src):
+def get_container_summary(src):
     """
     :return: file number, total size (bytes)
     """
@@ -95,3 +99,64 @@ def get_metadata(src):
             total_size += filesize
 
     return filecount, total_size
+
+
+@dataclass
+class AFF4Item:
+    name: str
+    size: dict
+    modify: str
+    create: str
+    urn: str
+    path: str
+    folder: bool = False
+
+
+def get_metadata(src):
+    """
+    :return: file number, total size (bytes)
+    """
+    items = {}
+
+    volume = container.Container.openURNtoContainer(rdfvalue.URN.FromFileName(src))
+
+    for folder in volume.resolver.QueryPredicateObject(
+        volume.urn, lexicon.AFF4_TYPE, lexicon.standard11.FolderImage
+    ):
+        path = unquote(folder.Parse().path[1:])
+
+        items[path] = AFF4Item(
+            name=None,
+            size=None,
+            modify=str(
+                volume.resolver.store.get(folder).get(lexicon.standard11.lastWritten)
+            ),
+            create=str(
+                volume.resolver.store.get(folder).get(lexicon.standard11.birthTime)
+            ),
+            urn=folder,
+            path=path,
+            folder=True,
+        )
+
+    for image in volume.images():
+        # Each image is a file in the container.
+
+        filesize = int(
+            volume.resolver.store.get(image.urn).get(lexicon.AFF4_STREAM_SIZE)
+        )
+        path = unquote(image.urn.Parse().path[1:])
+        items[path] = AFF4Item(
+            name=None,
+            size=filesize,
+            modify=str(
+                volume.resolver.store.get(image.urn).get(lexicon.standard11.lastWritten)
+            ),
+            create=str(
+                volume.resolver.store.get(image.urn).get(lexicon.standard11.birthTime)
+            ),
+            urn=image.urn,
+            path=path,
+        )
+
+    return volume, dict(sorted(items.items()))
