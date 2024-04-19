@@ -548,7 +548,7 @@ def is_portable():
 
 
 class MainWidget(QtWidgets.QWidget):
-    def __init__(self, parent: QtWidgets.QWidget):
+    def __init__(self, parent: QtWidgets.QWidget = None):
         super().__init__(parent=parent)
 
         # Do not use persistent settings if app is portable to reduce system modifications on copies from live systems
@@ -1153,8 +1153,20 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, version):
         super().__init__()
 
-        self.main_widget = MainWidget(self)
+        self.main_widget = QtWidgets.QWidget(self)
+        self.main_layout = QtWidgets.QVBoxLayout()
+        self.main_layout.setSpacing(10)
+        self.main_widget.setLayout(self.main_layout)
 
+        self.tab_widgets = QtWidgets.QTabWidget(self)
+        self.home_widget = MainWidget()
+        self.advanced_widget = AdvancedWidget()
+        self.advanced_widget.open_button.clicked.connect(self.read_aff4_window_open)
+
+        self.tab_widgets.addTab(self.home_widget, "Home")
+        self.tab_widgets.addTab(self.advanced_widget, "Advanced")
+
+        self.main_layout.addWidget(self.tab_widgets)
         self.setCentralWidget(self.main_widget)
         self.initMenu()
         self.version = version
@@ -1174,9 +1186,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tools.addAction(self.verify_menu)
         self.bar = bar
 
-        self.advanced_menu = QtGui.QAction("Switch to Advanced Interface")
-        self.advanced_menu.triggered.connect(self.advanced_window_open)
-        self.tools.addAction(self.advanced_menu)
+        self.read_menu = QtGui.QAction("Open AFF4 Image")
+        self.read_menu.triggered.connect(self.read_aff4_window_open)
+        self.tools.addAction(self.read_menu)
 
     def about_box(self):
         message = QtWidgets.QMessageBox(self)
@@ -1184,18 +1196,16 @@ class MainWindow(QtWidgets.QMainWindow):
         message.setIcon(QtWidgets.QMessageBox.Information)
         message.setText("gemino")
         message.setInformativeText(
-            "gemino\n\nForensic logical imager and file duplicator\n\nv{} - May 2023\n\nDeveloped with ❤️ by Francesco Servida beside work at:\n - University of Lausanne\n - United Nations Investigative Team for Accountability of crimes committed by Da’esh/ISIL (UNITAD)\n\nLicensed under GPLv3\nhttps://opensource.org/licenses/GPL-3.0".format(
-                self.version
-            )
+            f"gemino\n\nForensic logical imager and file duplicator\n\nv{self.version}\n\nDeveloped with ❤️ by Francesco Servida beside work at:\n - University of Lausanne\n - United Nations Investigative Team for Accountability of crimes committed by Da’esh/ISIL (UNITAD)\n\nLicensed under GPLv3\nhttps://opensource.org/licenses/GPL-3.0"
         )
         message.setWindowTitle("About")
         message.setStandardButtons(QtWidgets.QMessageBox.Ok)
         message.exec()
 
-    def advanced_window_open(self):
+    def read_aff4_window_open(self):
         self.bar.setDisabled(True)
         self.src_container = QtWidgets.QFileDialog(self)
-        self.src_container.setWindowTitle("Select AFF4 Container to Verify")
+        self.src_container.setWindowTitle("Select AFF4 Container to Open")
         self.src_container.setFileMode(QtWidgets.QFileDialog.ExistingFile)
         self.src_container.setNameFilter("AFF4 Images (*.aff4)")
         self.src_container.setWindowModality(QtCore.Qt.WindowModal)
@@ -1215,9 +1225,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if src_container_path:
             try:
                 volume, items = get_metadata(src_container_path)
-                self.advanced_widget = AdvancedWidget(self, volume, items)
-                self.setCentralWidget(self.advanced_widget)
-                self.resize(1200, 800)
+                self.advanced_widget.populate(volume, items, src_container_path)
+                self.resize(1400, 800)
             except Exception as e:
                 error_box(
                     self,

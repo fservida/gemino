@@ -13,12 +13,12 @@ if __name__ == "__main__":
     try:
         window = MainWindow(VERSION)
         window.setWindowTitle("gemino v" + VERSION)
-        window.resize(800, 600)
+        window.resize(1000, 600)
         window.show()
         exit_code = app.exec()
     except Exception as e:
         window = ErrorWindow(e)
-        window.resize(800, 600)
+        window.resize(1000, 600)
         window.show()
         error_box(
             window,
