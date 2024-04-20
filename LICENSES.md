@@ -53,7 +53,7 @@ Gemino relies on and packages the following software. All rights to the below so
 | SPARQLWrapper             | 1.8.5      | W3C License                                                                    | Ivan Herman, Sergio Fernández, Carlos Tejo Alonso, Alexey Zakhlestin                            | http://rdflib.github.io/sparqlwrapper                    |
 | pdf.js                    | 2.10.377   | Apache License 2.0                                                             | Mozilla                                                                                         | https://github.com/mozilla/pdf.js                        |
 | jszip                     | 3.10.1     | MIT License                                                                    | Stuart Knightley, David Duponchel, Franz Buchinger, António Afonso                              | https://stuk.github.io/jszip/                            |
-| docxjs                    | 0.33.dev21 | Apache License 2.0                                                             | Volodymyr Baydalka                                                                              | https://github.com/VolodymyrBaydalka/docxjs              |
+| docxjs                    | 0.3.0      | Apache License 2.0                                                             | Volodymyr Baydalka                                                                              | https://github.com/VolodymyrBaydalka/docxjs              |
 ```
 PyBindGen
 0.22.1
