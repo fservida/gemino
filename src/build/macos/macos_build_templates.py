@@ -1,7 +1,7 @@
 from jinja2 import Template
 from datetime import datetime
 
-VERSION = "2.8.0"
+VERSION = "2.9.0"
 CURRENT_DATE = datetime.now().strftime("%Y%m%d%H%M")
 
 # Build for custom distribution
