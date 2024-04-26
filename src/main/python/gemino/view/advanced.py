@@ -341,8 +341,6 @@ class AdvancedWidget(QtWidgets.QWidget):
                     mime_type.startswith("image")
                     or mime_type.startswith("text")
                     or mime_type == "application/pdf"
-                    or mime_type
-                    == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
             ):
                 # Supported mime type for viewer, not too large, load in single read.
