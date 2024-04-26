@@ -1181,12 +1181,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.help.addAction(self.about)
 
         self.tools = bar.addMenu("Tools")
-        self.verify_menu = QtGui.QAction("Verify AFF4 Image")
+        self.verify_menu = QtGui.QAction("Verify AFF4-L Container")
         self.verify_menu.triggered.connect(self.verify_aff4)
         self.tools.addAction(self.verify_menu)
         self.bar = bar
 
-        self.read_menu = QtGui.QAction("Open AFF4 Image")
+        self.read_menu = QtGui.QAction("Open AFF4-L Container")
         self.read_menu.triggered.connect(self.read_aff4_window_open)
         self.tools.addAction(self.read_menu)
 
@@ -1205,9 +1205,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def read_aff4_window_open(self):
         self.bar.setDisabled(True)
         self.src_container = QtWidgets.QFileDialog(self)
-        self.src_container.setWindowTitle("Select AFF4 Container to Open")
+        self.src_container.setWindowTitle("Select AFF4-L Container to Open")
         self.src_container.setFileMode(QtWidgets.QFileDialog.ExistingFile)
-        self.src_container.setNameFilter("AFF4 Images (*.aff4)")
+        self.src_container.setNameFilter("AFF4-L Containers (*.aff4)")
         self.src_container.setWindowModality(QtCore.Qt.WindowModal)
         directory = ""
         try:
@@ -1231,7 +1231,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 error_box(
                     self,
                     "Unable to Open",
-                    "An error occurred while opening the container",
+                    "An error occurred while opening the container. "
+                    "It is possible the container is not in AFF4-L format or corrupted.",
                     traceback.format_exc(),
                 )
                 pass
@@ -1243,9 +1244,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def verify_aff4(self):
         self.bar.setDisabled(True)
         self.src_container = QtWidgets.QFileDialog(self)
-        self.src_container.setWindowTitle("Select AFF4 Container to Verify")
+        self.src_container.setWindowTitle("Select AFF4-L Container to Verify")
         self.src_container.setFileMode(QtWidgets.QFileDialog.ExistingFile)
-        self.src_container.setNameFilter("AFF4 Images (*.aff4)")
+        self.src_container.setNameFilter("AFF4-L Containers (*.aff4)")
         self.src_container.setWindowModality(QtCore.Qt.WindowModal)
         directory = ""
         try:
@@ -1281,7 +1282,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 error_box(
                     self,
                     "Unable to Verify",
-                    "An error occurred while opening the container",
+                    "An error occurred while opening the container. "
+                    "It is possible the container is not in AFF4-L format or corrupted.",
                     traceback.format_exc(),
                 )
                 pass

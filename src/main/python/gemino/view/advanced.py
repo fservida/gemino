@@ -2,12 +2,11 @@ import os.path
 import traceback
 from typing import Union
 import puremagic
-
+from puremagic import PureError
 from PySide6 import QtWidgets, QtCore, QtGui, QtPdf
 from PySide6.QtPdfWidgets import QPdfView
 from pathlib import Path
 
-from puremagic import PureError
 from pyaff4.container import (
     PhysicalImageContainer,
     WritableHashBasedImageContainer,
@@ -15,7 +14,6 @@ from pyaff4.container import (
     PreStdLogicalImageContainer,
     EncryptedImageContainer,
 )
-
 from pyaff4 import lexicon, rdfvalue
 
 from ..copy.logical.aff4 import AFF4Item
@@ -54,14 +52,14 @@ class HexDumpWidget(QtWidgets.QPlainTextEdit):
         lines_per_page = int(round(widget_height / font_size))
         bytes_per_line = 16
         total_lines = (
-            self.current_file.length / bytes_per_line if self.current_file else 0
+            self.current_file.Length() / bytes_per_line if self.current_file else 0
         )
         scrollbar_max_lines = total_lines - lines_per_page + BOTTOM_MARGIN
         return scrollbar_max_lines, lines_per_page
 
     def load_next_chunk(self):
         chunk_size = 1024  # Adjust chunk size as needed
-        file_size = self.current_file.length
+        file_size = self.current_file.Length()
         if self.loaded_data < file_size:
             self.current_file.seek(self.loaded_data)
             chunk = self.current_file.Read(chunk_size)
@@ -93,7 +91,7 @@ class HexDumpWidget(QtWidgets.QPlainTextEdit):
                 (scrollbar.value() + scrollbar_step) * bytes_per_line
                 >= self.loaded_data
             )
-            and self.loaded_data < self.current_file.length
+            and self.loaded_data < self.current_file.Length()
         ):
             self.load_next_chunk()
 
@@ -123,7 +121,7 @@ class AdvancedWidget(QtWidgets.QWidget):
 
         # Instantiate Widgets
         ## Top
-        self.open_button = QtWidgets.QPushButton("Open Container")
+        self.open_button = QtWidgets.QPushButton("Open AFF4-L Container")
         self.container_label = QtWidgets.QLabel()
 
         self.top_buttons_layout = QtWidgets.QHBoxLayout()
@@ -252,7 +250,14 @@ class AdvancedWidget(QtWidgets.QWidget):
                 # Top Level Node
                 parent = None
             else:
-                parent = item_dict[current_item_path.parent]
+                try:
+                    parent = item_dict[current_item_path.parent]
+                except KeyError:
+                    # Parent does not exist (eg. in AFF4-L reference images), create all needed tree items
+                    self.create_missing_tree_folders(
+                        current_item_path.parent, items, item_dict
+                    )
+                    parent = item_dict[current_item_path.parent]
             qtree_item = QtWidgets.QTreeWidgetItem(
                 parent,
                 [
@@ -268,6 +273,30 @@ class AdvancedWidget(QtWidgets.QWidget):
             items.append(qtree_item)
 
         self.tree_view.insertTopLevelItems(0, items)
+
+    @staticmethod
+    def create_missing_tree_folders(
+        current_item_path: Path,
+        items: list,
+        item_dict: dict[Path, QtWidgets.QTreeWidgetItem],
+    ):
+        ancestors = current_item_path.parts
+        for i in range(len(ancestors)):
+            ancestor = ancestors[i]
+            ancestor_full_path = os.path.join(*ancestors[: i + 1])
+            # Check if item exist already, and create only if missing
+            ancestor_path = Path(ancestor_full_path)
+            if not item_dict.get(ancestor_path, None):
+                if ancestor_path.parent == Path(""):
+                    parent = None
+                else:
+                    # We are lower in the loop, the parent should have been created already by the preceding iteration
+                    parent = item_dict[ancestor_path.parent]
+                qtree_item = QtWidgets.QTreeWidgetItem(
+                    parent, [ancestor, "", "", "", "True", ""]
+                )  # True is "Folder"
+                item_dict[ancestor_path] = qtree_item
+                items.append(qtree_item)
 
     def export(self):
         if self.current_file is not None:
@@ -334,7 +363,7 @@ class AdvancedWidget(QtWidgets.QWidget):
                         mime_type = "text/plain"
             except Exception as e:
                 mime_type = None
-            if self.current_file.length <= 2**28 and (
+            if self.current_file.Length() <= 2**28 and (
                 mime_type
                 and (
                     mime_type.startswith("image")
@@ -414,52 +443,60 @@ class AdvancedWidget(QtWidgets.QWidget):
         self.case_metadata_dialog.open()
 
     def load_metadata(self, urn, folder):
-        metadata = "<table>"
-        metadata += f"<tr><td><b>URN:</b></td><td>{urn}</td></tr>"
-
-        name = self.volume.resolver.Get(
-            self.volume.urn, urn, rdfvalue.URN(lexicon.standard11.pathName)
-        )[0]
-        if folder:
-            metadata += f"<tr><td><b>Folder Name:</b></td><td>{name}</td></tr>"
+        if urn == "":
+            metadata = "No metadata available for selected item. It is likely a virtual tree item."
         else:
-            metadata += f"<tr><td><b>Filename:</b></td><td>{name}</td></tr>"
+            metadata = "<table>"
+            metadata += f"<tr><td><b>URN:</b></td><td>{urn}</td></tr>"
 
-        last_access = self.volume.resolver.Get(
-            self.volume.urn, urn, rdfvalue.URN(lexicon.standard11.lastAccessed)
-        )[0]
-        metadata += f"<tr><td><b>Last Access:</b></td><td>{last_access}</td></tr>"
-        last_written = self.volume.resolver.Get(
-            self.volume.urn, urn, rdfvalue.URN(lexicon.standard11.lastWritten)
-        )[0]
-        metadata += f"<tr><td><b>Modified:</b></td><td>{last_written}</td></tr>"
-        created = self.volume.resolver.Get(
-            self.volume.urn, urn, rdfvalue.URN(lexicon.standard11.birthTime)
-        )[0]
-        metadata += f"<tr><td><b>Created:</b></td><td>{created}</td></tr>"
-        record_changed = self.volume.resolver.Get(
-            self.volume.urn, urn, rdfvalue.URN(lexicon.standard11.recordChanged)
-        )[0]
-        metadata += f"<tr><td><b>Record Changed:</b></td><td>{record_changed}</td></tr>"
-
-        if not folder:
-            size = self.volume.resolver.Get(
-                self.volume.urn, urn, rdfvalue.URN(lexicon.AFF4_STREAM_SIZE)
+            name = self.volume.resolver.Get(
+                self.volume.urn, urn, rdfvalue.URN(lexicon.standard11.pathName)
             )[0]
-            metadata += f"<tr><td><b>Size:</b></td><td>{size} Bytes</td></tr>"
-        else:
-            metadata += f"<tr><td><b>Size:</b></td><td>N/A</td></tr>"
+            if folder:
+                metadata += f"<tr><td><b>Folder Name:</b></td><td>{name}</td></tr>"
+            else:
+                metadata += f"<tr><td><b>Filename:</b></td><td>{name}</td></tr>"
 
-        if not folder:
-            metadata += f"<tr></tr><tr><td><b>Hashes:</b></td></tr>"
-            hashes = self.volume.resolver.Get(
-                self.volume.urn, urn, rdfvalue.URN(lexicon.standard.hash)
+            last_access = self.volume.resolver.Get(
+                self.volume.urn, urn, rdfvalue.URN(lexicon.standard11.lastAccessed)
+            )[0]
+            metadata += f"<tr><td><b>Last Access:</b></td><td>{last_access}</td></tr>"
+            last_written = self.volume.resolver.Get(
+                self.volume.urn, urn, rdfvalue.URN(lexicon.standard11.lastWritten)
+            )[0]
+            metadata += f"<tr><td><b>Modified:</b></td><td>{last_written}</td></tr>"
+            created = self.volume.resolver.Get(
+                self.volume.urn, urn, rdfvalue.URN(lexicon.standard11.birthTime)
+            )[0]
+            metadata += f"<tr><td><b>Created:</b></td><td>{created}</td></tr>"
+            record_changed = self.volume.resolver.Get(
+                self.volume.urn, urn, rdfvalue.URN(lexicon.standard11.recordChanged)
+            )[0]
+            metadata += (
+                f"<tr><td><b>Record Changed:</b></td><td>{record_changed}</td></tr>"
             )
-            for hash in hashes:
-                hash_type = hash.datatype.split("#")[1]
-                metadata += f"<tr><td><b>{hash_type}</b></td><td>{hash.value}</td></tr>"
 
-        metadata += "</table>"
+            if not folder:
+                size = self.volume.resolver.Get(
+                    self.volume.urn, urn, rdfvalue.URN(lexicon.AFF4_STREAM_SIZE)
+                )[0]
+                metadata += f"<tr><td><b>Size:</b></td><td>{size} Bytes</td></tr>"
+            else:
+                metadata += f"<tr><td><b>Size:</b></td><td>N/A</td></tr>"
+
+            if not folder:
+                metadata += f"<tr></tr><tr><td><b>Hashes:</b></td></tr>"
+                hashes = self.volume.resolver.Get(
+                    self.volume.urn, urn, rdfvalue.URN(lexicon.standard.hash)
+                )
+                for hash in hashes:
+                    hash_type = hash.datatype.split("#")[1]
+                    metadata += (
+                        f"<tr><td><b>{hash_type}</b></td><td>{hash.value}</td></tr>"
+                    )
+
+            metadata += "</table>"
+
         self.metadata_box.clear()
         self.metadata_box.setHtml(metadata)
 

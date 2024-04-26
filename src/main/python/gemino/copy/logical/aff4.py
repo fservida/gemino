@@ -112,16 +112,9 @@ class AFF4Item:
     folder: bool = False
 
 
-def get_metadata(src):
-    """
-    :return: file number, total size (bytes)
-    """
-    items = {}
-
-    volume = container.Container.openURNtoContainer(rdfvalue.URN.FromFileName(src))
-
+def iterate_folder(items, volume, rdf_lexicon):
     for folder in volume.resolver.QueryPredicateObject(
-        volume.urn, lexicon.AFF4_TYPE, lexicon.standard11.FolderImage
+        volume.urn, lexicon.AFF4_TYPE, rdf_lexicon
     ):
         path = unquote(folder.Parse().path[1:])
 
@@ -138,6 +131,20 @@ def get_metadata(src):
             path=path,
             folder=True,
         )
+
+
+def get_metadata(src):
+    """
+    :return: file number, total size (bytes)
+    """
+    items = {}
+
+    volume = container.Container.openURNtoContainer(rdfvalue.URN.FromFileName(src))
+
+    iterate_folder(items, volume, lexicon.standard11.FolderImage)
+    # This is to be compliant with unicode.aff4 in reference images,
+    # although it looks like an issue with reference image or base library.
+    iterate_folder(items, volume, lexicon.standard11.base + "FolderImage")
 
     for image in volume.images():
         # Each image is a file in the container.
