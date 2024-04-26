@@ -346,7 +346,7 @@ class AdvancedWidget(QtWidgets.QWidget):
         if not folder:
             self.export_button.setDisabled(False)
             self.current_file = self.hex_viewer.current_file = (
-                self.volume.resolver.AFF4FactoryOpen(urn)
+                self.volume.resolver.AFF4FactoryOpen(urn, version=self.volume.version)
             )
             self.hex_viewer.loaded_data = 0
             header = self.current_file.Read(4096)

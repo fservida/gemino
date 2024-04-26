@@ -1,4 +1,4 @@
 PySide6
 PyInstaller
-pyaff4 @ git+https://github.com/fservida/pyaff4@8bb7f70beea488d292e5980612fedba50b0f360e
+pyaff4 @ git+https://github.com/fservida/pyaff4@cb36b4fba841eeab85d9f6475cd2872a80a12b51
 puremagic
