@@ -1,4 +1,3 @@
-import base64
 import os.path
 import traceback
 from typing import Union
