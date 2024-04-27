@@ -10,6 +10,7 @@ on: [push, pull_request]
   #    - master
 jobs:
   build-macos:
+    if: false
     runs-on: macos-11
     strategy:
       matrix:
@@ -111,6 +112,11 @@ jobs:
       matrix:
         python-version: ["3.9"]
     steps:
+      - name: Prepare Winget Environment
+        uses: Cyberboss/install-winget@v1
+      - name: Install MSIX Packager
+        run: |
+          winget install "MSIX Packaging Tool" --accept-source-agreements --accept-package-agreements
       - name: Check out repository code
         uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
@@ -127,11 +133,20 @@ jobs:
       - name: Package app with PyInstaller and NSIS
         run: |
           src\build\windows\build_windows.bat
-      - name: 'Upload Artifact'
+      - name: Package app as MSIX
+        run: |
+          MsixPackagingTool.exe create-package -v --template src\build\windows\msix_template.xml
+      - name: 'Upload Artifact - Setup'
         uses: actions/upload-artifact@v3
         with:
           name: geminoSetup.exe
           path: build/dist/geminoSetup.exe
+          if-no-files-found: error
+      - name: 'Upload Artifact - MSIX'
+        uses: actions/upload-artifact@v3
+        with:
+          name: gemino.msix
+          path: build/dist/gemino.msix
           if-no-files-found: error
           
       
