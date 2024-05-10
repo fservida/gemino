@@ -8,7 +8,7 @@ from puremagic import PureError
 from PySide6 import QtWidgets, QtCore, QtGui, QtPdf
 from PySide6.QtPdfWidgets import QPdfView
 from pathlib import Path
-from PIL import Image, ImageQt, ExifTags
+from PIL import Image, ExifTags
 
 from pyaff4.container import (
     PhysicalImageContainer,
@@ -20,107 +20,13 @@ from pyaff4.container import (
 from pyaff4 import lexicon, rdfvalue
 
 from ..copy.logical.aff4 import AFF4Item
+from .hex_dump_widget import HexDumpWidget
 
 
 @dataclass
 class Exif:
     name: str
     value: str
-
-
-class HexDumpWidget(QtWidgets.QPlainTextEdit):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setReadOnly(True)
-        self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
-        self.verticalScrollBar().sliderMoved.connect(self.preload_on_scrollbar_change)
-        font = QtGui.QFontDatabase.systemFont(QtGui.QFontDatabase.FixedFont)
-        self.setFont(font)
-
-        self.current_file = None
-        self.loaded_data = 0
-
-    def reset(self):
-        self.current_file = None
-        self.loaded_data = 0
-        self.clear()
-
-    def resizeEvent(self, e):
-        super().resizeEvent(e)
-        self.adjust_scrollbar()
-
-    def scrollContentsBy(self, dx, dy):
-        # self.load_next_chunk()
-        super().scrollContentsBy(dx, dy)
-
-    def get_scrollbar_settings(self):
-        BOTTOM_MARGIN = 1
-        widget_height = self.height()
-        # font_size = self.hex_viewer.fontMetrics().height()
-        font_size = 12
-        lines_per_page = int(round(widget_height / font_size))
-        bytes_per_line = 16
-        total_lines = (
-            self.current_file.Length() / bytes_per_line if self.current_file else 0
-        )
-        scrollbar_max_lines = total_lines - lines_per_page + BOTTOM_MARGIN
-        return scrollbar_max_lines, lines_per_page
-
-    def load_next_chunk(self):
-        chunk_size = 1024  # Adjust chunk size as needed
-        file_size = self.current_file.Length()
-        if self.loaded_data < file_size:
-            self.current_file.seek(self.loaded_data)
-            chunk = self.current_file.Read(chunk_size)
-            hex_dump = self.format_hex_dump(chunk, self.loaded_data)
-            self.insertPlainText(hex_dump + "\n")
-            self.adjust_scrollbar()
-            self.loaded_data += len(chunk)
-
-    def adjust_scrollbar(self):
-        scrollbar = self.verticalScrollBar()
-        scrollbar_range, scrollbar_step = self.get_scrollbar_settings()
-        scrollbar.setRange(0, scrollbar_range)
-        scrollbar.setPageStep(scrollbar_step)
-
-    def preload_on_scrollbar_change(self):
-        scrollbar = self.verticalScrollBar()
-        scrollbar_range, scrollbar_step = self.get_scrollbar_settings()
-        print(
-            scrollbar.value(),
-            scrollbar.maximum(),
-            scrollbar_range,
-            self.loaded_data,
-            self.height(),
-        )
-        bytes_per_line = 16
-        while (
-            scrollbar.value()
-            and (
-                (scrollbar.value() + scrollbar_step) * bytes_per_line
-                >= self.loaded_data
-            )
-            and self.loaded_data < self.current_file.Length()
-        ):
-            self.load_next_chunk()
-
-    @staticmethod
-    def format_hex_dump(data, offset):
-        BYTES_PER_LINE = 16
-        formatted_text = ""
-        for i in range(0, len(data), BYTES_PER_LINE):
-            chunk = data[i : i + BYTES_PER_LINE]
-            chunk_len = len(chunk)
-            hex_line = f"{offset + i:010X} | "
-            ascii_line = ""
-            for b in chunk:
-                hex_line += f" {b:02X}"
-                ascii_line += chr(b) if 32 <= b < 127 else "."
-            if chunk_len < BYTES_PER_LINE:
-                for _ in range(0, BYTES_PER_LINE-chunk_len):
-                    hex_line += f"   "  # 3 empty spaces: a spacer, and 2 to match missing 00
-            formatted_text += f"{hex_line}   {ascii_line}\n"
-        return formatted_text.rstrip("\n")
 
 
 class AdvancedWidget(QtWidgets.QWidget):
