@@ -1,11 +1,14 @@
+import io
 import os.path
 import traceback
+from dataclasses import dataclass
 from typing import Union
 import puremagic
 from puremagic import PureError
 from PySide6 import QtWidgets, QtCore, QtGui, QtPdf
 from PySide6.QtPdfWidgets import QPdfView
 from pathlib import Path
+from PIL import Image, ImageQt, ExifTags
 
 from pyaff4.container import (
     PhysicalImageContainer,
@@ -19,12 +22,18 @@ from pyaff4 import lexicon, rdfvalue
 from ..copy.logical.aff4 import AFF4Item
 
 
+@dataclass
+class Exif:
+    name: str
+    value: str
+
+
 class HexDumpWidget(QtWidgets.QPlainTextEdit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setReadOnly(True)
         self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
-        self.verticalScrollBar().valueChanged.connect(self.on_scrollbar_value_changed)
+        self.verticalScrollBar().sliderMoved.connect(self.preload_on_scrollbar_change)
         font = QtGui.QFontDatabase.systemFont(QtGui.QFontDatabase.FixedFont)
         self.setFont(font)
 
@@ -74,7 +83,7 @@ class HexDumpWidget(QtWidgets.QPlainTextEdit):
         scrollbar.setRange(0, scrollbar_range)
         scrollbar.setPageStep(scrollbar_step)
 
-    def on_scrollbar_value_changed(self):
+    def preload_on_scrollbar_change(self):
         scrollbar = self.verticalScrollBar()
         scrollbar_range, scrollbar_step = self.get_scrollbar_settings()
         print(
@@ -97,14 +106,19 @@ class HexDumpWidget(QtWidgets.QPlainTextEdit):
 
     @staticmethod
     def format_hex_dump(data, offset):
+        BYTES_PER_LINE = 16
         formatted_text = ""
-        for i in range(0, len(data), 16):
-            chunk = data[i : i + 16]
+        for i in range(0, len(data), BYTES_PER_LINE):
+            chunk = data[i : i + BYTES_PER_LINE]
+            chunk_len = len(chunk)
             hex_line = f"{offset + i:010X} | "
             ascii_line = ""
             for b in chunk:
                 hex_line += f" {b:02X}"
                 ascii_line += chr(b) if 32 <= b < 127 else "."
+            if chunk_len < BYTES_PER_LINE:
+                for _ in range(0, BYTES_PER_LINE-chunk_len):
+                    hex_line += f"   "  # 3 empty spaces: a spacer, and 2 to match missing 00
             formatted_text += f"{hex_line}   {ascii_line}\n"
         return formatted_text.rstrip("\n")
 
@@ -361,6 +375,12 @@ class AdvancedWidget(QtWidgets.QWidget):
                     if Path(str(filename)).suffix in (".csv", ".tsv"):
                         # In future use something like https://oss.sheetjs.com/ to handle preview, including xlsx
                         mime_type = "text/plain"
+                    elif self.is_plain_text(header):
+                        mime_type = "text/plain"
+                if mime_type.startswith("application") and not mime_type == "application/pdf":
+                    # prepend text to all other mimetypes if we heuristically suppose plain text support
+                    if self.is_plain_text(header):
+                        mime_type = f"text/{mime_type}"
             except Exception as e:
                 mime_type = None
             if self.current_file.Length() <= 2**28 and (
@@ -500,6 +520,61 @@ class AdvancedWidget(QtWidgets.QWidget):
         self.metadata_box.clear()
         self.metadata_box.setHtml(metadata)
 
+    @staticmethod
+    def parse_exif(exif):
+        # Parse EXIF Tags
+        # Parse EXIF GPS Tags
+        exif_list: [Exif] = []
+
+        exif_gps = exif.get_ifd(ExifTags.IFD.GPSInfo)
+
+        for tag in ExifTags.TAGS:
+            tag_name = ExifTags.TAGS[tag]
+            try:
+                exif_pair = Exif(tag_name, exif[tag])
+                if not isinstance(exif_pair.value, bytes):
+                    exif_list.append(exif_pair)
+            except Exception:
+                # Skip missing or problematic tag without making a fuss
+                pass
+
+        for tag in ExifTags.GPSTAGS:
+            tag_name = ExifTags.GPSTAGS[tag]
+            try:
+                exif_pair = Exif(tag_name, exif_gps[tag])
+                if not isinstance(exif_pair.value, bytes):
+                    exif_list.append(exif_pair)
+            except Exception:
+                # Skip missing or problematic tag without making a fuss
+                pass
+        return exif_list
+
+    def append_exif(self, data):
+        self.metadata_box.moveCursor(QtGui.QTextCursor.End)
+        try:
+            image = Image.open(io.BytesIO(data))
+            exif = image.getexif()
+            exif_list: [Exif] = self.parse_exif(exif)
+            exif_html = "<hr><table>"
+            for exif_pair in exif_list:
+                exif_html += f"<tr><td><b>{exif_pair.name}:</b></td><td>{exif_pair.value}</td></tr>"
+            exif_html += "</table>"
+            self.metadata_box.insertHtml(exif_html)
+        except Exception as error:
+            print(f"Error when importing image to Pillow image: {error}")
+
+    @staticmethod
+    def is_plain_text(sample_data):
+        # We test if a file is text by trying to decode a sample of the file. If it works we assume plain text
+        # If error, we consider not plain text or unsupported codec and will not try to decode the full file.
+        # Successful decoding of sample data might not mean file is plain text and might fail on full decode
+        # but it provides a way to rapidly triage.
+        try:
+            sample_data.decode("utf-8")
+            return True
+        except Exception:
+            return False
+
     def load_data(self, data, mime_type):
 
         # Hide all widgets
@@ -530,6 +605,7 @@ class AdvancedWidget(QtWidgets.QWidget):
 
                 self.image_label.setPixmap(pixmap)
                 self.image_label.show()
+                self.append_exif(data)
             elif mime_type.startswith("text"):
                 text = data.decode("utf-8", "ignore")
                 self.text_edit.setPlainText(text)
