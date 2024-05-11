@@ -15,6 +15,7 @@ class VolumeProgress(QtWidgets.QWidget):
         "error_copy": "Copy Error",
         "error_hash": "Hash Verification Error",
         "error_io": "Lost Communication to Device",
+        "exporting": "Exporting file from container"
     }
 
     def __init__(

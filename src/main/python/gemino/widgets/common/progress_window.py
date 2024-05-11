@@ -7,7 +7,8 @@ import traceback
 from .volume_progress import VolumeProgress
 from .error_box import error_box
 from ...threads.copy.logical.copy import CopyThread, VerifyThread
-from ...threads.copy.utils import ProgressData
+from ...threads.export import ExportThread
+from ...threads.common.utils import ProgressData
 
 
 class ProgressWindow(QtWidgets.QDialog):
@@ -19,21 +20,27 @@ class ProgressWindow(QtWidgets.QDialog):
         "verifying",
         "end_verify",
         "cancel_verify",
+        "exporting",
+        "end_export",
+        "cancel_export",
     )
     DESCRIPTIONS = {
         "copying": "Writing to Device, hashing source on the fly",
         "hashing": "Verifying data written to device",
         "end": "Copy and verification finished",
-        "cancel": "File copy has been interrupted",
+        "cancel": "Process has been interrupted",
         "verifying": "Verifying integrity of container",
         "end_verify": "Container verification finished",
         "cancel_verify": "Container verification aborted",
+        "exporting": "Exporting selected file",
+        "end_export": "File exported successfully",
+        "cancel_export": "File export aborted"
     }
 
     def __init__(
         self,
         parent: QtWidgets.QWidget,
-        src: str,
+        src, # Either string or Buffered Reader
         dst: list = [],
         hash_algos: list = [],
         total_files: int = 0,
@@ -42,6 +49,7 @@ class ProgressWindow(QtWidgets.QDialog):
         aff4: bool = False,
         aff4_filename: str = "",
         aff4_verify: bool = False,
+        file_export: bool = False,
     ):
         super().__init__(parent=parent)
 
@@ -63,12 +71,19 @@ class ProgressWindow(QtWidgets.QDialog):
         self.close_button.clicked.connect(self.close)
         self.close_button.setHidden(True)
 
+        self.file_export = file_export
+
         self.volume_progresses: list[VolumeProgress] = []
 
         for destination in dst:
             if aff4:
                 self.volume_progresses.append(
                     VolumeProgress(destination, total_bytes, total_files, aff4_filename)
+                )
+            if file_export:
+                # Destination is a BufferedWriter, not a str
+                self.volume_progresses.append(
+                    VolumeProgress(destination.name, total_bytes, total_files)
                 )
             else:
                 self.volume_progresses.append(
@@ -103,6 +118,8 @@ class ProgressWindow(QtWidgets.QDialog):
 
         if self.aff4:
             self.base_path = self.aff4_filename
+        elif file_export:
+            self.base_path = str(self.src.urn)
         else:
             self.base_path = (
                 path.basename(path.normpath(src))
@@ -115,7 +132,7 @@ class ProgressWindow(QtWidgets.QDialog):
         self.update_ui()
 
         # Start copying files
-        if not aff4_verify:
+        if not aff4_verify and not file_export:
             self.thread = CopyThread(
                 src,
                 dst,
@@ -129,9 +146,15 @@ class ProgressWindow(QtWidgets.QDialog):
             self.thread.copy_progress.connect(
                 self.update_progress, QtCore.Qt.QueuedConnection
             )
-        else:
+        elif aff4_verify:
             self.thread = VerifyThread(src, total_files, total_bytes)
             self.thread.verify_progress.connect(
+                self.update_progress, QtCore.Qt.QueuedConnection
+            )
+        else:
+            # File export set
+            self.thread = ExportThread(src, dst, total_files, total_bytes)
+            self.thread.copy_progress.connect(
                 self.update_progress, QtCore.Qt.QueuedConnection
             )
 
@@ -159,7 +182,8 @@ class ProgressWindow(QtWidgets.QDialog):
 
         data = progress.payload
         self.status = ProgressWindow.STATUSES[status]
-        if status not in (2, 5):
+        print(data)
+        if status not in (2, 5, 8):
             for volume_progress in self.volume_progresses:
                 # update Widget only if information about the volume are present in progress
                 # (eg. parallel or current drive for serial)
@@ -181,12 +205,15 @@ class ProgressWindow(QtWidgets.QDialog):
         else:
             for volume_progress in self.volume_progresses:
                 volume_progress.isFinished(True)
+            if self.file_export:
+                for destination in self.dst:
+                    destination.close()
 
         self.update_ui()
 
     def update_ui(self):
         self.status_label.setText(self.DESCRIPTIONS[self.status])
-        if self.status in ("end", "cancel", "end_verify", "cancel_verify"):
+        if self.status in ("end", "cancel", "end_verify", "cancel_verify", "end_export", "cancel_export"):
             self.close_button.setHidden(False)
             self.cancel_button.setHidden(True)
 
@@ -196,14 +223,19 @@ class ProgressWindow(QtWidgets.QDialog):
         self.status = self.STATUSES[3]  # cancel
 
         base_path = self.base_path
-        for dst in self.dst:
-            try:
-                report_file_path = path.join(dst, f"{base_path}_copy_report.txt")
-                with open(report_file_path, "a", encoding="utf-8") as report_file:
-                    report_file.write(
-                        f"\nUser interrupted copy process at: {datetime.now().isoformat()}"
-                    )
-            except FileNotFoundError as error:
-                print(f"Error writing to report: {error}")
-                error_box(self, "Error Writing to Report", traceback.format_exc())
+        if not self.file_export:
+            for dst in self.dst:
+                try:
+                    report_file_path = path.join(dst, f"{base_path}_copy_report.txt")
+                    with open(report_file_path, "a", encoding="utf-8") as report_file:
+                        report_file.write(
+                            f"\nUser interrupted copy process at: {datetime.now().isoformat()}"
+                        )
+                except FileNotFoundError as error:
+                    print(f"Error writing to report: {error}")
+                    error_box(self, "Error Writing to Report", traceback.format_exc())
+        if self.file_export:
+            for destination in self.dst:
+                destination.close()
+
         self.update_ui()

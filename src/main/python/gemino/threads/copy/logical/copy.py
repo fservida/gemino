@@ -14,7 +14,8 @@ from pyaff4 import rdfvalue, utils
 from pyaff4 import hashes as aff4_hashes
 from pyaff4 import data_store, linear_hasher
 
-from ..utils import CopyBuffer, HashBuffer, ProgressData
+from ..utils import CopyBuffer, HashBuffer
+from ...common.utils import ProgressData
 from .aff4 import LinearVerificationListener, trimVolume, ProgressContextListener
 
 

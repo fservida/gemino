@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from urllib.parse import unquote
 
 
-from ..utils import ProgressData
+from ...common.utils import ProgressData
 
 
 class ProgressContextListener(ProgressContext):

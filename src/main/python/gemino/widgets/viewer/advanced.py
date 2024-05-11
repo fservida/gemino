@@ -19,6 +19,7 @@ from pyaff4.container import (
 )
 from pyaff4 import lexicon, rdfvalue
 
+from ..common import ProgressWindow
 from ...threads.copy.logical.aff4 import AFF4Item
 from .hex_dump_widget import HexDumpWidget
 
@@ -220,7 +221,6 @@ class AdvancedWidget(QtWidgets.QWidget):
 
     def export(self):
         if self.current_file is not None:
-
             self.export_dst = QtWidgets.QFileDialog(self)
             self.export_dst.setWindowTitle("Export File as")
             self.export_dst.setWindowModality(QtCore.Qt.WindowModal)
@@ -240,11 +240,22 @@ class AdvancedWidget(QtWidgets.QWidget):
                 export_dst_path = self.export_dst.selectedFiles()[0]
             if export_dst_path:
                 print(f"We shall export the selected item to: {export_dst_path}")
-                with open(export_dst_path, "wb") as dst_file:
-                    self.current_file.seek(0)
-                    dst_file.write(self.current_file.ReadAll())
-                    print("Finished writing file")
-        pass
+                self.dst_file = open(export_dst_path, "wb")
+                self.current_file.seek(0)
+                self.progress = ProgressWindow(
+                    self,
+                    self.current_file,
+                    [self.dst_file],
+                    total_files=1,
+                    total_bytes=self.current_file.Length(),
+                    file_export=True,
+                )
+                self.progress.setWindowFlags(
+                    QtCore.Qt.CustomizeWindowHint | QtCore.Qt.Dialog
+                )
+                self.progress.setWindowModality(QtCore.Qt.ApplicationModal)
+                self.progress.open()
+                self.progress.start_tasks()
 
     def view_details(self):
         urn = self.tree_view.selectedItems()[0].data(5, 0)

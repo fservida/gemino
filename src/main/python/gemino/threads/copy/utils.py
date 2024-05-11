@@ -1,5 +1,4 @@
 from threading import Thread
-from dataclasses import dataclass
 
 
 class CopyBuffer(Thread):
@@ -22,9 +21,3 @@ class HashBuffer(Thread):
 
     def run(self):
         self.hash_buffer.update(self.data_buffer)
-
-
-@dataclass
-class ProgressData:
-    status: int
-    payload: dict
