@@ -6,7 +6,7 @@ class HexDumpWidget(QtWidgets.QPlainTextEdit):
     BYTES_PER_LINE = 16
     BOTTOM_MARGIN = 1
     FONT_SIZE = 12
-    CHUNK_SIZE = 4096  # Adjust chunk size as needed
+    CHUNK_SIZE = 1024  # 1KB chunks - Adjust chunk size as needed
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
