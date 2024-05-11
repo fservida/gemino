@@ -283,7 +283,10 @@ class AdvancedWidget(QtWidgets.QWidget):
                         mime_type = "text/plain"
                     elif self.is_plain_text(header):
                         mime_type = "text/plain"
-                if mime_type.startswith("application") and not mime_type == "application/pdf":
+                if (
+                    mime_type.startswith("application")
+                    and not mime_type == "application/pdf"
+                ):
                     # prepend text to all other mimetypes if we heuristically suppose plain text support
                     if self.is_plain_text(header):
                         mime_type = f"text/{mime_type}"

@@ -47,8 +47,12 @@ class HexDumpWidget(QtWidgets.QPlainTextEdit):
         if self.loaded_data < file_size:
             self.current_file.seek(self.loaded_data)
             chunk = self.current_file.Read(self.CHUNK_SIZE)
-            hex_dump = self.format_hex_dump(chunk, self.loaded_data, self.BYTES_PER_LINE)
-            self.moveCursor(QtGui.QTextCursor.End) # Move cursor at end before inserting new data
+            hex_dump = self.format_hex_dump(
+                chunk, self.loaded_data, self.BYTES_PER_LINE
+            )
+            self.moveCursor(
+                QtGui.QTextCursor.End
+            )  # Move cursor at end before inserting new data
             self.insertPlainText(hex_dump + "\n")
             self.loaded_data += len(chunk)
             self.adjust_scrollbar()
@@ -97,8 +101,9 @@ class HexDumpWidget(QtWidgets.QPlainTextEdit):
                 hex_line += f" {b:02X}"
                 ascii_line += chr(b) if 32 <= b < 127 else "."
             if chunk_len < bytes_per_line:
-                for _ in range(0, bytes_per_line-chunk_len):
-                    hex_line += f"   "  # 3 empty spaces: a spacer, and 2 to match missing 00
+                for _ in range(0, bytes_per_line - chunk_len):
+                    hex_line += (
+                        f"   "  # 3 empty spaces: a spacer, and 2 to match missing 00
+                    )
             formatted_text += f"{hex_line}   {ascii_line}\n"
         return formatted_text.rstrip("\n")
-
