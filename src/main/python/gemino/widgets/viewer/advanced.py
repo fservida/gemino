@@ -19,7 +19,7 @@ from pyaff4.container import (
 )
 from pyaff4 import lexicon, rdfvalue
 
-from ..copy.logical.aff4 import AFF4Item
+from ...threads.copy.logical.aff4 import AFF4Item
 from .hex_dump_widget import HexDumpWidget
 
 

@@ -3,7 +3,8 @@ import traceback
 
 import sys
 
-from gemino.widgets import MainWindow, ErrorWindow, error_box
+from gemino.widgets.main import MainWindow, ErrorWindow
+from gemino.widgets.common import error_box
 from gemino.vars import VERSION
 
 
