@@ -881,7 +881,7 @@ class VerifyThread(QThread):
     def initialise_log_text(self):
         log = ""
         log += f"# Gemino Verification Report\n"
-        log += f"# Gemino v2.8.0\n"
+        log += f"# Gemino v2.9.0\n"
         log += f"#####################################################\n\n"
 
         log += f"################## Container Information #################\n"

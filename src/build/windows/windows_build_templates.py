@@ -1,6 +1,6 @@
 from jinja2 import Template
 
-VERSION = "2.8.0"
+VERSION = "2.9.0"
 AUTHOR = "Francesco Servida"
 NAME = "gemino"
 
