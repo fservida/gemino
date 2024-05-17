@@ -13,6 +13,7 @@ class HexDumpWidget(QtWidgets.QPlainTextEdit):
         self.setReadOnly(True)
         self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
         self.verticalScrollBar().sliderMoved.connect(self.preload_on_scrollbar_change)
+        self.verticalScrollBar().valueChanged.connect(self.preload_on_scrollbar_change)
         font = QtGui.QFontDatabase.systemFont(QtGui.QFontDatabase.FixedFont)
         self.setFont(font)
 
@@ -69,7 +70,7 @@ class HexDumpWidget(QtWidgets.QPlainTextEdit):
         else:
             pass
 
-    def preload_on_scrollbar_change(self):
+    def preload_on_scrollbar_change(self, value=None):
         scrollbar = self.verticalScrollBar()
         scrollbar_range, scrollbar_step = self.get_scrollbar_settings()
         # print(
