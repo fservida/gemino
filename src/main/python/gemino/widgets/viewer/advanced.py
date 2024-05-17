@@ -289,7 +289,7 @@ class AdvancedWidget(QtWidgets.QWidget):
                     mime_type = puremagic.magic_string(header, filename)[0].mime_type
                 except PureError as e:
                     mime_type = None
-                if mime_type is None or mime_type == '':
+                if mime_type is None or mime_type == "":
                     if Path(str(filename)).suffix in (".csv", ".tsv"):
                         # In future use something like https://oss.sheetjs.com/ to handle preview, including xlsx
                         mime_type = "text/plain"
@@ -491,7 +491,7 @@ class AdvancedWidget(QtWidgets.QWidget):
         # Successful decoding of sample data might not mean file is plain text and might fail on full decode
         # but it provides a way to rapidly triage.
         try:
-            bom = b'\xEF\xBB\xBF'
+            bom = b"\xEF\xBB\xBF"
             if sample_data[:3] == bom:
                 # File has BOM for UTF-8
                 return True
