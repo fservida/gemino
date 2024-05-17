@@ -1,3 +1,5 @@
+import time
+
 from PySide6 import QtWidgets, QtCore, QtGui
 
 
@@ -20,6 +22,8 @@ class HexDumpWidget(QtWidgets.QPlainTextEdit):
         self.current_file = None
         self.loaded_data = 0
 
+        self._mutex = QtCore.QMutex()
+
     def reset(self):
         self.current_file = None
         self.loaded_data = 0
@@ -35,32 +39,38 @@ class HexDumpWidget(QtWidgets.QPlainTextEdit):
 
     def get_scrollbar_settings(self):
         widget_height = self.height()
-        # font_size = self.hex_viewer.fontMetrics().height()
-        lines_per_page = int(round(widget_height / self.FONT_SIZE))
+        font_size = self.fontMetrics().height()
+        lines_per_page = int(round(widget_height / font_size))
         total_lines = (
             self.current_file.Length() / self.BYTES_PER_LINE if self.current_file else 0
         )
-        scrollbar_max_lines = total_lines - lines_per_page + self.BOTTOM_MARGIN
+        scrollbar_max_lines = int(
+            round(total_lines - lines_per_page + self.BOTTOM_MARGIN)
+        )
         return scrollbar_max_lines, lines_per_page
 
     def load_next_chunk(self):
         file_size = self.current_file.Length()
         if self.loaded_data < file_size:
+            self._mutex.lock()
             self.current_file.seek(self.loaded_data)
             chunk = self.current_file.Read(self.CHUNK_SIZE)
             hex_dump = self.format_hex_dump(
                 chunk, self.loaded_data, self.BYTES_PER_LINE
             )
+            self.loaded_data += len(chunk)
             self.moveCursor(
                 QtGui.QTextCursor.End
             )  # Move cursor at end before inserting new data
+            self._mutex.unlock()
+
             self.insertPlainText(hex_dump + "\n")
-            self.loaded_data += len(chunk)
             self.adjust_scrollbar()
 
-    def adjust_scrollbar(self):
-        scrollbar = self.verticalScrollBar()
-        if self.current_file and self.loaded_data < self.current_file.Length():
+    def adjust_scrollbar(self, force=False):
+        if self.current_file and (
+            self.loaded_data < self.current_file.Length() or force
+        ):
             # Use custom scrollbar display only if not everything is loaded.
             # This should avoid issues with alignment of last lines.
             scrollbar = self.verticalScrollBar()
@@ -89,6 +99,14 @@ class HexDumpWidget(QtWidgets.QPlainTextEdit):
             and self.loaded_data < self.current_file.Length()
         ):
             self.load_next_chunk()
+        if (
+            self.loaded_data >= self.current_file.Length()
+            and scrollbar.maximum() < scrollbar_range
+        ):
+            # Fix for last lines not showing sometimes
+            # force a reload of the widget with full content
+            # print("Fixing scrollbar max value")
+            self.adjust_scrollbar(force=True)
 
     @staticmethod
     def format_hex_dump(data, offset, bytes_per_line):
