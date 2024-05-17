@@ -34,13 +34,13 @@ class ProgressWindow(QtWidgets.QDialog):
         "cancel_verify": "Container verification aborted",
         "exporting": "Exporting selected file",
         "end_export": "File exported successfully",
-        "cancel_export": "File export aborted"
+        "cancel_export": "File export aborted",
     }
 
     def __init__(
         self,
         parent: QtWidgets.QWidget,
-        src, # Either string or Buffered Reader
+        src,  # Either string or Buffered Reader
         dst: list = [],
         hash_algos: list = [],
         total_files: int = 0,
@@ -213,7 +213,14 @@ class ProgressWindow(QtWidgets.QDialog):
 
     def update_ui(self):
         self.status_label.setText(self.DESCRIPTIONS[self.status])
-        if self.status in ("end", "cancel", "end_verify", "cancel_verify", "end_export", "cancel_export"):
+        if self.status in (
+            "end",
+            "cancel",
+            "end_verify",
+            "cancel_verify",
+            "end_export",
+            "cancel_export",
+        ):
             self.close_button.setHidden(False)
             self.cancel_button.setHidden(True)
 

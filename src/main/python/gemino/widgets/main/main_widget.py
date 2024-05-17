@@ -612,7 +612,3 @@ class MainWidget(QtWidgets.QWidget):
             return True
         else:
             return False
-
-
-
-

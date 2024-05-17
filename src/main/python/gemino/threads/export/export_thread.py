@@ -37,7 +37,7 @@ class ExportThread(QThread):
 
     def run(self):
         try:
-                self.export_file()
+            self.export_file()
         except Exception as error:
             raise
             self.copy_progress.emit(ProgressData(-1, error))
@@ -82,9 +82,7 @@ class ExportThread(QThread):
             self.setTerminationEnabled(False)
 
             for dst in self.destinations:
-                thread = CopyBuffer(
-                    data_current, dst
-                )  # Threaded Version
+                thread = CopyBuffer(data_current, dst)  # Threaded Version
                 thread.start()  # Threaded Version
                 threads.append(thread)  # Threaded Version
 
