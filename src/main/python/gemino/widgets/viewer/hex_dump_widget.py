@@ -114,7 +114,7 @@ class HexDumpWidget(QtWidgets.QPlainTextEdit):
         for i in range(0, len(data), bytes_per_line):
             chunk = data[i : i + bytes_per_line]
             chunk_len = len(chunk)
-            hex_line = f"{offset + i:010X} | "
+            hex_line = f"{offset + i:010X}  "
             ascii_line = ""
             for b in chunk:
                 hex_line += f" {b:02X}"
