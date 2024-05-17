@@ -3,6 +3,10 @@
 
 <a href="https://apps.apple.com/us/app/gemino/id6478332524?mt=12&amp;itsct=apps_box_badge&amp;itscg=30200" style="display: inline-block; overflow: hidden; border-radius: 13px; width: 250px; height: 83px;"><img src="https://tools.applemediaservices.com/api/badges/download-on-the-mac-app-store/black/en-us?size=250x83&amp;releaseDate=1709510400" alt="Download on the Mac App Store" style="border-radius: 13px; width: 250px; height: 83px;"></a>
 
+<a href="https://apps.microsoft.com/detail/gemino/9NWJQGNCPJPW?mode=full">
+	<img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
+</a>
+
 - [gemino](#gemino)
   - [gemino file duplicator](#gemino-file-duplicator)
     - [Features](#features)

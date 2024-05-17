@@ -183,3 +183,4 @@ test_copy.py
 # NSIS
 Installer.nsi
 version_info.py
+msix_template.xml

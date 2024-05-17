@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<MsixPackagingToolTemplate xmlns="http://schemas.microsoft.com/appx/msixpackagingtool/template/2018">
+  <Settings AllowTelemetry="false" ApplyAllPrepareComputerFixes="false" AllowPromptForPassword="false" p4:EnforceMicrosoftStoreRequirements="true" p5:ServerPortNumber="1599" p6:AddPackageIntegrity="true" p7:SupportedWindowsVersionForMsixCore="None" xmlns:p7="http://schemas.microsoft.com/msix/msixpackagingtool/template/2004" xmlns:p6="http://schemas.microsoft.com/msix/msixpackagingtool/template/2001" xmlns:p5="http://schemas.microsoft.com/msix/msixpackagingtool/template/1904" xmlns:p4="http://schemas.microsoft.com/msix/msixpackagingtool/template/2007"></Settings>
+  <SaveLocation PackagePath="{{ cwd }}\{{ app_name }}.msix"/>
+  <Installer Path="{{ cwd }}\build\dist\{{ app_name }}Setup.exe" Arguments="/S" />
+  <PackageInformation PackageName="{{ package_name }}" PackageDisplayName="{{ app_name }}" PublisherName="CN={{ publisher_name }}" PublisherDisplayName="{{ author }}" Version="{{ version_msix }}" p4:PackageDescription="{{ description }}" xmlns:p4="http://schemas.microsoft.com/msix/msixpackagingtool/template/1910" />
+</MsixPackagingToolTemplate>
