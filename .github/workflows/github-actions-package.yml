@@ -63,6 +63,11 @@ jobs:
           MACOS_ALTOOL_PASSWORD: ${{ secrets.MACOS_ALTOOL_PASSWORD }}
         run: |
           src/build/macos/build_macos.sh
+      - name: 'Upload App to App Store'
+        env:
+          MACOS_ALTOOL_USER: ${{ secrets.MACOS_ALTOOL_USER }}
+          MACOS_ALTOOL_PASSWORD: ${{ secrets.MACOS_ALTOOL_PASSWORD }}
+        run: |
           xcrun altool --upload-app --file build/dist/gemino.pkg -u $MACOS_ALTOOL_USER -p $MACOS_ALTOOL_PASSWORD --type macos
       - name: 'Upload DMG Artifact'
         uses: actions/upload-artifact@v3
