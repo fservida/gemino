@@ -80,7 +80,7 @@ class ProgressWindow(QtWidgets.QDialog):
                 self.volume_progresses.append(
                     VolumeProgress(destination, total_bytes, total_files, aff4_filename)
                 )
-            if file_export:
+            elif file_export:
                 # Destination is a BufferedWriter, not a str
                 self.volume_progresses.append(
                     VolumeProgress(destination.name, total_bytes, total_files)
