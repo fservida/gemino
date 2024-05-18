@@ -44,6 +44,9 @@ xcrun notarytool submit "notarization.zip" --keychain-profile "notarytool-profil
 echo "Attach staple"
 xcrun stapler staple -v "build/dist/app/gemino.app"
 
+productbuild --sign "3rd Party Mac Developer Installer: Francesco Servida (UVXFW83BXV)" --component build/dist/appstore/gemino.app /Applications build/dist/gemino.pkg
+xcrun altool --validate-app --file build/dist/gemino.pkg  --keychain-profile "notarytool-profile" --type macos
+
 git clone https://github.com/create-dmg/create-dmg.git
 create-dmg/create-dmg --volname gemino --app-drop-link 10 10 build/dist/gemino.dmg build/dist/app
 
@@ -53,6 +56,3 @@ xcrun notarytool submit build/dist/gemino.dmg --keychain-profile "notarytool-pro
 # validated by macOS even when an internet connection is not available.
 echo "Attach staple"
 xcrun stapler staple -v "build/dist/gemino.dmg"
-
-
-productbuild --sign "3rd Party Mac Developer Installer: Francesco Servida (UVXFW83BXV)" --component build/dist/appstore/gemino.app /Applications build/dist/gemino.pkg
