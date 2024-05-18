@@ -212,7 +212,7 @@ class VolumeProgress(QtWidgets.QWidget):
 
     @status.setter
     def status(self, status):
-        if self.__status == 'idle' and status != 'idle':
+        if self.__status == "idle" and status != "idle":
             # Started copy/verification switch to normal progress bar
             self.__progress_bar.setMaximum(100)
         if str(status) not in VolumeProgress.__STATUSES:
