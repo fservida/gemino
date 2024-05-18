@@ -47,9 +47,7 @@ echo "Attach staple"
 xcrun stapler staple -v "build/dist/app/gemino.app"
 
 productbuild --sign "3rd Party Mac Developer Installer: Francesco Servida (UVXFW83BXV)" --component build/dist/appstore/gemino.app /Applications build/dist/gemino.pkg
-mkdir ~/.private_keys/
-echo $MACOS_NOTARIZATION_KEY | base64 --decode > ~/.private_keys/AuthKey_$MACOS_NOTARIZATION_KEY_ID.p8
-xcrun altool --validate-app --file build/dist/gemino.pkg --apiKey $MACOS_NOTARIZATION_KEY_ID --apiIssuer $MACOS_NOTARIZATION_ISSUER --type macos
+xcrun altool --validate-app --file build/dist/gemino.pkg -u $MACOS_ALTOOL_USER -p $MACOS_ALTOOL_PASSWORD --type macos
 
 git clone https://github.com/create-dmg/create-dmg.git
 create-dmg/create-dmg --volname gemino --app-drop-link 10 10 build/dist/gemino.dmg build/dist/app
