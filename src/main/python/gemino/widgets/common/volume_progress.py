@@ -9,7 +9,7 @@ from .log_dialog import LogDialog
 class VolumeProgress(QtWidgets.QWidget):
     __STATUSES = {
         "copy": "Copying Files",
-        "idle": "Idle",
+        "idle": "Preparing",
         "hashing": "Verifying Hash",
         "done": "Done",
         "error_copy": "Copy Error",
@@ -59,6 +59,7 @@ class VolumeProgress(QtWidgets.QWidget):
             QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter
         )
         self.__progress_bar = QtWidgets.QProgressBar()
+        self.__progress_bar.setMaximum(0)
         self.__current_file_label = QtWidgets.QLabel()
         self.__size_progress_label = QtWidgets.QLabel()
         self.__size_progress_label.setAlignment(
@@ -211,6 +212,9 @@ class VolumeProgress(QtWidgets.QWidget):
 
     @status.setter
     def status(self, status):
+        if self.__status == 'idle' and status != 'idle':
+            # Started copy/verification switch to normal progress bar
+            self.__progress_bar.setMaximum(100)
         if str(status) not in VolumeProgress.__STATUSES:
             raise ValueError("Invalid Status Provided")
         self.__status = status

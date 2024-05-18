@@ -20,7 +20,7 @@ from pyaff4.container import (
 from pyaff4 import lexicon, rdfvalue
 
 from ..common import ProgressWindow
-from ...threads.copy.logical.aff4 import AFF4Item
+from ...threads.aff4.common import AFF4Item
 from .hex_dump_widget import HexDumpWidget
 
 

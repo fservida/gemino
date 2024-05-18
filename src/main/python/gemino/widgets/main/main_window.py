@@ -2,9 +2,11 @@ from PySide6 import QtWidgets, QtCore, QtGui
 import traceback
 
 from .main_widget import MainWidget
+from ..common.loading_window import LoadingWindow
 from ..viewer import AdvancedWidget
 from ..common import ProgressWindow, error_box
-from ...threads.copy.logical.aff4 import get_metadata, get_container_summary
+from ...threads.aff4 import GetSummaryThread, OpenContainerThread
+from ...threads.aff4.utils import number_of_items
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -29,6 +31,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.initMenu()
         self.version = version
         self.progress: ProgressWindow = None
+        self.loading: LoadingWindow = None
 
     def initMenu(self):
         bar = self.menuBar()
@@ -82,8 +85,22 @@ class MainWindow(QtWidgets.QMainWindow):
             src_container_path = self.src_container.selectedFiles()[0]
         if src_container_path:
             try:
-                volume, items = get_metadata(src_container_path)
-                self.advanced_widget.populate(volume, items, src_container_path)
+                # Get number of items in AFF4-L container to display progress bar
+                # Fast iteration using zipfile library
+                item_count = number_of_items(src_container_path)
+                self.loading = LoadingWindow(
+                    parent=self,
+                    total_items=item_count,
+                    call_thread=OpenContainerThread(src_container_path),
+                    return_function=self.advanced_widget.populate,
+                )
+                self.loading.setWindowFlags(
+                    QtCore.Qt.CustomizeWindowHint | QtCore.Qt.Dialog
+                )
+                self.loading.setModal(True)
+                self.loading.setWindowModality(QtCore.Qt.ApplicationModal)
+                self.loading.open()
+                self.loading.start_tasks()
                 self.resize(1400, 800)
             except Exception as e:
                 error_box(
@@ -98,6 +115,20 @@ class MainWindow(QtWidgets.QMainWindow):
             pass
 
         # self.resize(1200, 800)
+
+    def verify_aff4_start(self, total_files, total_size, src_container_path):
+        self.progress = ProgressWindow(
+            self,
+            src_container_path,
+            total_files=total_files,
+            total_bytes=total_size,
+            aff4_verify=True,
+        )
+        self.progress.setWindowFlags(QtCore.Qt.CustomizeWindowHint | QtCore.Qt.Dialog)
+        self.progress.setModal(True)
+        self.progress.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.progress.open()
+        self.progress.start_tasks()
 
     def verify_aff4(self):
         self.bar.setDisabled(True)
@@ -121,21 +152,20 @@ class MainWindow(QtWidgets.QMainWindow):
             src_container_path = self.src_container.selectedFiles()[0]
         if src_container_path:
             try:
-                total_files, total_size = get_container_summary(src_container_path)
-                self.progress = ProgressWindow(
-                    self,
-                    src_container_path,
-                    total_files=total_files,
-                    total_bytes=total_size,
-                    aff4_verify=True,
+                item_count = number_of_items(src_container_path)
+                self.loading = LoadingWindow(
+                    parent=self,
+                    total_items=item_count,
+                    call_thread=GetSummaryThread(src_container_path),
+                    return_function=self.verify_aff4_start,
                 )
-                self.progress.setWindowFlags(
+                self.loading.setWindowFlags(
                     QtCore.Qt.CustomizeWindowHint | QtCore.Qt.Dialog
                 )
-                self.progress.setModal(True)
-                self.progress.setWindowModality(QtCore.Qt.ApplicationModal)
-                self.progress.open()
-                self.progress.start_tasks()
+                self.loading.setModal(True)
+                self.loading.setWindowModality(QtCore.Qt.ApplicationModal)
+                self.loading.open()
+                self.loading.start_tasks()
             except Exception as e:
                 error_box(
                     self,

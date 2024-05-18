@@ -3,9 +3,6 @@
 from pyaff4 import utils, rdfvalue, escaping, lexicon, zip, container
 from pyaff4.aff4 import ProgressContext
 from past.utils import old_div
-from dataclasses import dataclass
-from urllib.parse import unquote
-
 
 from ...common.utils import ProgressData
 
@@ -76,94 +73,3 @@ def trimVolume(volume, image):
     if imagestring.startswith("//"):
         imagestring = imagestring[2:]
     return imagestring
-
-
-def get_container_summary(src):
-    """
-    :return: file number, total size (bytes)
-    """
-    filecount = 0
-    total_size = 0
-
-    with container.Container.openURNtoContainer(
-        rdfvalue.URN.FromFileName(src)
-    ) as volume:
-
-        for image in volume.images():
-            # Each image is a file in the container.
-            # Update Byte Progress
-            filecount += 1
-            filesize = int(
-                image.resolver.store.get(image.urn).get(lexicon.AFF4_STREAM_SIZE)
-            )
-            total_size += filesize
-
-    return filecount, total_size
-
-
-@dataclass
-class AFF4Item:
-    name: str
-    size: dict
-    modify: str
-    create: str
-    urn: str
-    path: str
-    folder: bool = False
-
-
-def iterate_folder(items, volume, rdf_lexicon):
-    for folder in volume.resolver.QueryPredicateObject(
-        volume.urn, lexicon.AFF4_TYPE, rdf_lexicon
-    ):
-        path = unquote(folder.Parse().path[1:])
-
-        items[path] = AFF4Item(
-            name=None,
-            size=None,
-            modify=str(
-                volume.resolver.store.get(folder).get(lexicon.standard11.lastWritten)
-            ),
-            create=str(
-                volume.resolver.store.get(folder).get(lexicon.standard11.birthTime)
-            ),
-            urn=folder,
-            path=path,
-            folder=True,
-        )
-
-
-def get_metadata(src):
-    """
-    :return: file number, total size (bytes)
-    """
-    items = {}
-
-    volume = container.Container.openURNtoContainer(rdfvalue.URN.FromFileName(src))
-
-    iterate_folder(items, volume, lexicon.standard11.FolderImage)
-    # This is to be compliant with unicode.aff4 in reference images,
-    # although it looks like an issue with reference image or base library.
-    iterate_folder(items, volume, lexicon.standard11.base + "FolderImage")
-
-    for image in volume.images():
-        # Each image is a file in the container.
-
-        filesize = int(
-            volume.resolver.store.get(image.urn).get(lexicon.AFF4_STREAM_SIZE)
-        )
-        path = unquote(image.urn.Parse().path[1:])
-        items[path] = AFF4Item(
-            name=None,
-            size=filesize,
-            modify=str(
-                volume.resolver.store.get(image.urn).get(lexicon.standard11.lastWritten)
-            ),
-            create=str(
-                volume.resolver.store.get(image.urn).get(lexicon.standard11.birthTime)
-            ),
-            urn=image.urn,
-            path=path,
-        )
-
-    return volume, dict(sorted(items.items()))
