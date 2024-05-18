@@ -38,7 +38,8 @@ This was born as a small project to help in my workflow, and has since evolved i
 - **On the fly hashing**: gemino hashes the source data while copying
 - **"Multicasting"**: gemino uses multiple threads to optimize the writing of the copies to the target drives
 - **Verification**: gemino verifies the written data to the destination devices (well, what forensic tool would it be if that wasn't the case? ＼(￣▽￣)／	 )
-- **AFF4**: Support for creation of AFF4 containers __⚠beta status⚠__ - Only one destination possible
+- **AFF4**: Support for creation of AFF4 containers - Only one destination possible
+- **AFF4**: Support for reading and verification of AFF4 containers - Simple preview interface available
 
 Using gemino you can optimize the copy of large dataset to multiple drives for backup or distribution purposes.
 By reading the source data only once gemino does not suffer from source bottlenecks.
@@ -47,26 +48,41 @@ with a parallel copy to many disks this means parallel reads which slow the over
 
 Reading the source data only once for the entire process (copy and hashing) allows gemino to increase drastically the copy performance, especially on slow source devices such as Network drives or HDDs.
 
-![screen_main.png](screen_main.png)
-![screen_copy_basic.png](screen_copy_basic.png)
+![screen_main.png](docs/screen_main.png)
+![screen_copy_basic.png](docs/screen_copy_basic.png)
 
 *Basic Copy to Multiple Destinations.*
 
-![screen_copy_aff4.png](screen_copy_aff4.png)
+![screen_copy_aff4.png](docs/screen_copy_aff4.png)
 
 *Copy to AFF4 Container for Single Destination.*
 
-![screen_done.png](screen_done.png)
+![screen_done.png](docs/screen_done_aff4.png)
+
+*Open AFF4 Container to preview and export content.*
+
+![screen_viewer_aff4.png](docs/screen_viewer_aff4.png)
 
 ### AFF4-L Support
+#### Creation
 
 1. The AFF4-L containers created with Gemino are compliant with standard published in [https://www.sciencedirect.com/science/article/pii/S1742287619301653](https://www.sciencedirect.com/science/article/pii/S1742287619301653)
 2. The containers can be read and verified by pyaff tool
-4. AFF4-L support is still considered beta level because of the low compatibility by major forensic solutions of AFF4-L format.
-5. To reduce impact due to point 4 the containers are created using only ZipSegments independently of file size to improve compatibility. If the tool does not support AFF4-L standard, or fails to process the data, the container can still be imported as ZIP archive.
+3. AFF4-L support has low compatibility by major forensic solutions of AFF4-L format.
+4. To reduce impact due to point 3 the containers are created using only ZipSegments independently of file size to improve compatibility. If the tool does not support AFF4-L standard, or fails to process the data, the container can still be imported as ZIP archive.
 
     -   When imported this way the drawback will be inability to verify or process the metadata. Empty folders will also not be imported if using this workaround as they are not stored in the zip archive but only in the metadata file for AFF4-L.
     -   Containers with ZipSegments of arbitrary file sizes might be less performant as the whole segment needs to be loaded in memory when doing random seek, this approach was still chosen to ensure AFF4-L images created with Gemino have the widest possible compatibility with existing tools.
+
+#### Verification and Reading
+
+1. Gemino is able to verify and open AFF4-L containers created by gemino itself, pyAFF4 and Magnet Axiom.
+2. Gemino has a basic viewer for containers featuring:
+
+    - Directory like view of container
+    - Hex Viewer for selected file
+    - Preview for a limited number of document types (images, pdfs, plain text)
+    - Metadata viewer for AFF4-L metadata and Exif metadata of images
 
 ### Drawbacks
 #### Copy Performance
@@ -93,30 +109,20 @@ Solving this would need implementing multiprocessing, which will be for another 
 #### From binaries
 Just download the binaries for your system
 
-- from github's [release page](https://github.com/fservida/gemino/releases). (Only Windows Binary Currently up-to-date, macOS will follow soon)
-- from fbs release system
-  - macOS: [https://fbs.sh/fservida/gemino/gemino.dmg](https://fbs.sh/fservida/gemino/gemino.dmg) !outdated!
-  - windows: [https://fbs.sh/fservida/gemino/geminoSetup.exe](https://fbs.sh/fservida/gemino/geminoSetup.exe) !outdated!
-  - ubuntu: [https://fbs.sh/fservida/gemino/gemino.deb](https://fbs.sh/fservida/gemino/gemino.deb) !outdated!
-    - via apt with auto-updates: !outdated!
-    - ```
-      sudo apt-get install apt-transport-https
-      wget -qO - https://fbs.sh/fservida/gemino/public-key.gpg | sudo apt-key add -
-      echo 'deb [arch=amd64] https://fbs.sh/fservida/gemino/deb stable main' | sudo tee /etc/apt/sources.list.d/gemino.list
-      sudo apt-get update
-      sudo apt-get install gemino
-      ```
+- from GitHub's [release page](https://github.com/fservida/gemino/releases).
+- from [Apple Store](https://apps.apple.com/us/app/gemino/id6478332524) or [Microsoft Store](https://apps.microsoft.com/detail/gemino/9NWJQGNCPJPW?mode=full)
 
 #### From source
-**Python 3.5/3.6 Required** 
+**Python 3.9 Required** 
 ```
 git clone https://github.com/fservida/gemino
 cd gemino
 pip install -r requirements.txt
-fbs run
+python src/main/python/main.py
 ```
+If having issues with running, please look at .github/workflows/github-actions-package.yml and check how we build for your OS.
 
-On platforms with apple silicon use the following to create the needed environment for x64 binaries using rosetta (ensure rosetta is installed before by running any x64 binary):
+On platforms with Apple Silicon use the following to create the needed environment for x64 binaries using rosetta (ensure rosetta is installed before by running any x64 binary):
 ```bash
 CONDA_SUBDIR=osx-64 conda create -n rosetta python   # create a new environment called rosetta with intel packages.
 conda activate rosetta
@@ -129,8 +135,8 @@ conda config --env --set subdir osx-64
 - Windows 10, 1803+
 
 **Other Platforms**
-This project uses  [fbs](https://build-system.fman.io/) for packaging, if binaries for your platform are not available (or compatible) you can just download the source and package it yourself.
-Please share the packaged binary/installer (installer preferable) for others to use, we'll all be grateful (づ￣ ³￣)づ	.
+This project uses PyInstaller for packaging, if binaries for your platform are not available (or compatible) you can just download the source and package it yourself.
+Please share the packaging commands for others to use, we'll all be grateful (づ￣ ³￣)づ	.
 
 ### Contribution Guide
 
