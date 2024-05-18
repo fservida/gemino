@@ -1,7 +1,15 @@
 from jinja2 import Template
 from datetime import datetime
+from pathlib import Path
+import sys
 
-VERSION = "2.9.0"
+path = str(
+    Path(__file__).parent.parent.parent.joinpath(Path("main/python/")).absolute()
+)
+sys.path.insert(0, path)
+
+from gemino.vars import VERSION
+
 CURRENT_DATE = datetime.now().strftime("%Y%m%d%H%M")
 
 # Build for custom distribution

@@ -1,7 +1,17 @@
 from jinja2 import Template
 import os
+from pathlib import Path
+import sys
 
-VERSION = "2.9.0"
+
+path = str(
+    Path(__file__).parent.parent.parent.joinpath(Path("main/python/")).absolute()
+)
+sys.path.insert(0, path)
+
+from gemino.vars import VERSION
+
+
 AUTHOR = "Francesco Servida"
 NAME = "gemino"
 

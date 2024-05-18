@@ -17,6 +17,7 @@ from pyaff4 import data_store, linear_hasher
 from ..utils import CopyBuffer, HashBuffer
 from ...common.utils import ProgressData
 from .aff4 import LinearVerificationListener, trimVolume, ProgressContextListener
+from ....vars import VERSION
 
 
 # TODO - Split CopyThread in Two Subclasses for basic and aff4 (and maybe others).
@@ -738,7 +739,7 @@ class CopyThread(QThread):
                 report_file_path = path.join(dst, f"{base_path}_copy_report.txt")
                 with open(report_file_path, "w", encoding="utf-8") as report_file:
                     report_file.write(f"# Gemino Copy Report\n")
-                    report_file.write(f"# Gemino v2.8.0\n")
+                    report_file.write(f"# Gemino v{VERSION}\n")
                     report_file.write(
                         f"#####################################################\n\n"
                     )
@@ -881,7 +882,7 @@ class VerifyThread(QThread):
     def initialise_log_text(self):
         log = ""
         log += f"# Gemino Verification Report\n"
-        log += f"# Gemino v2.9.0\n"
+        log += f"# Gemino v{VERSION}\n"
         log += f"#####################################################\n\n"
 
         log += f"################## Container Information #################\n"
