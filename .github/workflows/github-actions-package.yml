@@ -61,7 +61,7 @@ jobs:
           MACOS_PROVISIONING_PROFILE: ${{ secrets.MACOS_PROVISIONING_PROFILE }}
         run: |
           src/build/macos/build_macos.sh
-          xcrun altool --validate-app --file build/dist/gemino.pkg  --keychain-profile "notarytool-profile" --type macos
+          xcrun altool --upload-app --file build/dist/gemino.pkg  --keychain-profile "notarytool-profile" --type macos
       - name: 'Upload DMG Artifact'
         uses: actions/upload-artifact@v3
         with:
