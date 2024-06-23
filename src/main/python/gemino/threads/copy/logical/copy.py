@@ -227,7 +227,14 @@ class CopyThread(QThread):
                         for dst, dst_file in dst_file_ptrs.items():
                             try:
                                 dst_file.close()
-                                shutil.copystat(src_file_path, dst_file.name)
+                                try:
+                                    shutil.copystat(src_file_path, dst_file.name)
+                                except OSError:
+                                    # shutil failed to copy file metadata. Not a critical error, log and continue.
+                                    print(
+                                        f"Warning - Unable to copy file attributes to destination folder ({dst_path}), not all metadata might reflect the source."
+                                    )
+
                             except (FileNotFoundError, OSError):
                                 print("Lost destination")
                                 raise

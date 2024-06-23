@@ -182,7 +182,6 @@ class ProgressWindow(QtWidgets.QDialog):
 
         data = progress.payload
         self.status = ProgressWindow.STATUSES[status]
-        print(data)
         if status not in (2, 5, 8):
             for volume_progress in self.volume_progresses:
                 # update Widget only if information about the volume are present in progress
