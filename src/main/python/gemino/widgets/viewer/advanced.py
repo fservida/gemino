@@ -491,7 +491,7 @@ class AdvancedWidget(QtWidgets.QWidget):
         # Successful decoding of sample data might not mean file is plain text and might fail on full decode
         # but it provides a way to rapidly triage.
         try:
-            bom = b"\xEF\xBB\xBF"
+            bom = b"\xef\xbb\xbf"
             if sample_data[:3] == bom:
                 # File has BOM for UTF-8
                 return True
