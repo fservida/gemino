@@ -70,13 +70,13 @@ jobs:
         run: |
           xcrun altool --upload-app --file build/dist/gemino.pkg -u $MACOS_ALTOOL_USER -p $MACOS_ALTOOL_PASSWORD --type macos
       - name: 'Upload DMG Artifact'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: gemino.dmg
           path: build/dist/gemino.dmg
           if-no-files-found: error
       - name: 'Upload PKG Artifact'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: gemino.pkg
           path: build/dist/gemino.pkg
@@ -108,7 +108,7 @@ jobs:
         run: |
           fbs installer
       - name: 'Upload Artifact'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: gemino.deb
           path: target/gemino.deb
@@ -136,7 +136,7 @@ jobs:
         run: |
           src\build\windows\build_windows.bat
       - name: 'Upload Artifact'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: geminoSetup.exe
           path: build/dist/geminoSetup.exe
