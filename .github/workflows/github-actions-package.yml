@@ -1,6 +1,6 @@
 name: Packaging Gemino
 run-name: ${{ github.actor }} is packaging Gemino for deployment.
-on: [push, pull_request]
+on: [push, pull_request, workflow_call]
   #push:
   #  branches:
   #    - master
