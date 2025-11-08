@@ -7,6 +7,7 @@ from datetime import datetime
 import shutil
 import uuid
 from copy import copy, deepcopy
+import csv
 
 from pyaff4 import container
 from pyaff4 import lexicon, logical, escaping
@@ -34,6 +35,7 @@ class CopyThread(QThread):
         metadata: list,
         aff4: bool,
         aff4_filename: str,
+        csv_log: bool,
     ):
         super().__init__()
         self.src = src
@@ -54,6 +56,7 @@ class CopyThread(QThread):
                 else "[root]"
             )
         print(self.aff4, self.aff4_filename, self.destinations)
+        self.csv_log = csv_log
 
     def run(self):
         try:
@@ -84,6 +87,7 @@ class CopyThread(QThread):
         buffer_size = 64 * 1024 * 1024  # Read 64M at a time
 
         files_hashes = {}  # {filepath: {hash_name:hash_value, ...}, ...}
+        files_metadata = {}  # {filepath: metadata, ...}
 
         start_time = self.initialize_log_files(destinations, base_path, src)
 
@@ -248,6 +252,12 @@ class CopyThread(QThread):
                     raise
                 files_hashes[path.normpath(path.join(rel_path, filename))] = file_hashes
 
+                # Use pyAFF4 module to get metadata for file
+                fsmeta = logical.FSMetadata.create(
+                    src_file_path
+                )  # FSMetadata needs absolute path for source info
+                files_metadata[path.normpath(path.join(rel_path, filename))] = fsmeta
+
         # Write Hash Files
         end_time = datetime.now()
         print("Writing Hash Files...")
@@ -265,6 +275,23 @@ class CopyThread(QThread):
                     for file, file_hashes in files_hashes.items():
                         hash_values = [file_hashes[hash_algo] for hash_algo in hashes]
                         report_file.write(f"{' - '.join(hash_values)} - {file}\n")
+                if self.csv_log:
+                    csv_report_file_path = path.join(dst, f"{base_path}_file_report.csv")
+                    with open(csv_report_file_path, "w", encoding="utf-8") as csv_report_file:
+                        csv_report_writer = csv.writer(csv_report_file, delimiter=',',
+                                                quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                        csv_report_writer.writerow(["path", "size", "created", "modified", "accessed", "record_changed"] + self.hashes)
+                        for file, file_hashes in files_hashes.items():
+                            hash_values = [file_hashes[hash_algo] for hash_algo in hashes]
+                            metadata = files_metadata[file]
+                            csv_report_writer.writerow([
+                                file,
+                                metadata.length,
+                                metadata.birthTime if hasattr(metadata, "birthTime") else "",
+                                metadata.lastWritten,
+                                metadata.lastAccessed,
+                                metadata.recordChanged if hasattr(metadata, "recordChanged") else "",
+                            ] + hash_values )
             except FileNotFoundError as error:
                 print(f"Error writing to report: {error}")
                 raise
@@ -423,6 +450,7 @@ class CopyThread(QThread):
         # buffer_size = 64 * 1024 * 1024  # Read 64M at a time
 
         files_hashes = {}  # {filepath: {hash_name:hash_value, ...}, ...}
+        files_metadata = {}  # {filepath: metadata, ...}
 
         start_time = self.initialize_log_files(destinations, base_path, src)
 
@@ -556,6 +584,7 @@ class CopyThread(QThread):
                         fsmeta = logical.FSMetadata.create(
                             src_file_path
                         )  # FSMetadata needs absolute path for source info
+                        files_metadata[path.normpath(path.join(rel_path, filename))] = fsmeta
                         try:
                             filesize = path.getsize(
                                 src_file_path
@@ -628,6 +657,23 @@ class CopyThread(QThread):
                     for file, file_hashes in files_hashes.items():
                         hash_values = [file_hashes[hash_algo] for hash_algo in hashes]
                         report_file.write(f"{' - '.join(hash_values)} - {file}\n")
+                if self.csv_log:
+                    csv_report_file_path = path.join(dst, f"{base_path}_file_report.csv")
+                    with open(csv_report_file_path, "w", encoding="utf-8") as csv_report_file:
+                        csv_report_writer = csv.writer(csv_report_file, delimiter=',',
+                                                quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                        csv_report_writer.writerow(["path", "size", "created", "modified", "accessed", "record_changed"] + self.hashes)
+                        for file, file_hashes in files_hashes.items():
+                            hash_values = [file_hashes[hash_algo] for hash_algo in hashes]
+                            metadata = files_metadata[file]
+                            csv_report_writer.writerow([
+                                file,
+                                metadata.length,
+                                metadata.birthTime if hasattr(metadata, "birthTime") else "",
+                                metadata.lastWritten,
+                                metadata.lastAccessed,
+                                metadata.recordChanged if hasattr(metadata, "recordChanged") else "",
+                            ] + hash_values )
             except FileNotFoundError as error:
                 print(f"Error writing to report: {error}")
                 raise
