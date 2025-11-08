@@ -1,13 +1,14 @@
 name: Packaging Gemino
 run-name: ${{ github.actor }} is packaging Gemino for deployment.
-on: [push, pull_request, workflow_call]
-  #push:
-  #  branches:
-  #    - master
-  #    - 'releases/**'
-  #pull_request:
-  #  branches:
-  #    - master
+on:
+  push:
+    branches:
+      - master
+      - 'releases/**'
+  pull_request:
+    branches:
+      - master
+  workflow_call:
 jobs:
   build-macos:
     runs-on: macos-13
