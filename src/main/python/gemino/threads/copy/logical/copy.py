@@ -280,7 +280,7 @@ class CopyThread(QThread):
                         dst, f"{base_path}_file_report.csv"
                     )
                     with open(
-                        csv_report_file_path, "w", encoding="utf-8", newline=''
+                        csv_report_file_path, "w", encoding="utf-8", newline=""
                     ) as csv_report_file:
                         csv_report_writer = csv.writer(
                             csv_report_file,
@@ -695,7 +695,7 @@ class CopyThread(QThread):
                         dst, f"{base_path}_file_report.csv"
                     )
                     with open(
-                        csv_report_file_path, "w", encoding="utf-8", newline=''
+                        csv_report_file_path, "w", encoding="utf-8", newline=""
                     ) as csv_report_file:
                         csv_report_writer = csv.writer(
                             csv_report_file,
