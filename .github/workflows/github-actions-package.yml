@@ -13,7 +13,7 @@ jobs:
     runs-on: macos-13
     strategy:
       matrix:
-        python-version: ["3.9"]
+        python-version: ["3.13"]
     steps:
       - name: Check out repository code
         uses: actions/checkout@v3
@@ -117,7 +117,7 @@ jobs:
     runs-on: windows-2022
     strategy:
       matrix:
-        python-version: ["3.9"]
+        python-version: ["3.13"]
     steps:
       - name: Check out repository code
         uses: actions/checkout@v3
