@@ -128,8 +128,9 @@ jobs:
       - name: Install dependencies
         run: |
           mkdir C:\pip
-          python -m pip config set global.cache-dir "C:\pip"
-          python -m pip install --upgrade pip
+          pip config set global.cache-dir "C:\pip"
+          pip install --upgrade pip
+          pip cache info
           pip install wheel
           pip install pybindgen
           pip install -r requirements/base.txt
