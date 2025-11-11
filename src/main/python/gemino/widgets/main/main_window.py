@@ -1,5 +1,6 @@
 from PySide6 import QtWidgets, QtCore, QtGui
 import traceback
+import sys
 
 from .main_widget import MainWidget
 from ..common.loading_window import LoadingWindow
@@ -57,7 +58,7 @@ class MainWindow(QtWidgets.QMainWindow):
         message.setIcon(QtWidgets.QMessageBox.Information)
         message.setText("gemino")
         message.setInformativeText(
-            f"gemino\n\nForensic logical imager and file duplicator\n\nv{self.version}\n\nDeveloped with ❤️ by Francesco Servida beside work at:\n - University of Lausanne\n - United Nations Investigative Team for Accountability of crimes committed by Da’esh/ISIL (UNITAD)\n\nLicensed under GPLv3\nhttps://opensource.org/licenses/GPL-3.0\nThird party dependencies: https://francescoservida.ch/gemino/LICENSES"
+            f"Forensic logical imager and file duplicator\n\nv{self.version}\n\nDeveloped with ❤️ by Francesco Servida.\n\nLicensed under GPLv3\nhttps://opensource.org/licenses/GPL-3.0\nThird party dependencies: https://francescoservida.ch/gemino/LICENSES\n\nRunning on Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
         )
         message.setWindowTitle("About")
         message.setStandardButtons(QtWidgets.QMessageBox.Ok)

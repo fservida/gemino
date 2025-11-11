@@ -27,6 +27,9 @@ class MainWidget(QtWidgets.QWidget):
             None  # interface/logo        -> If set logo will be displayed in interface
         )
         self.managed_algorithms = None  # hashing/algorithms    -> If set forces the usage of algorithms included in comma separated list
+        self.managed_csv_log = (
+            None  # If set forces creation of a csv log with additional metadata
+        )
         self.managed_destinations_aff4 = (
             None  # destinations/aff4     -> If true forces the creation of AFF4 images
         )
@@ -60,6 +63,9 @@ class MainWidget(QtWidgets.QWidget):
                     for algorithm in managed_algorithms:
                         if algorithm in allowed_algorithms:
                             self.managed_algorithms.append(algorithm)
+            self.managed_csv_log = self.managed_settings.value("logging/csv", None)
+            if self.managed_csv_log is not None:
+                self.managed_csv_log = self.managed_csv_log.lower() == "true"
             self.managed_destinations_aff4 = self.managed_settings.value(
                 "destinations/aff4", None
             )
@@ -143,6 +149,12 @@ class MainWidget(QtWidgets.QWidget):
         self.notes_label = QtWidgets.QLabel("Notes:")
         self.notes_text_field = QtWidgets.QTextEdit()
         self.init_hashing_widgets()
+        self.csv_log = QtWidgets.QCheckBox(
+            "Write CSV Log with Additional Metadata", self
+        )
+        if self.managed_csv_log is not None:
+            self.csv_log.setChecked(self.managed_csv_log)
+            self.csv_log.setDisabled(True)
         # AFF4 Support
         self.aff4_checkbox = QtWidgets.QCheckBox("Write to AFF4 Container", self)
         self.aff4_checkbox.stateChanged.connect(self.toggle_aff4_filename)
@@ -204,6 +216,10 @@ class MainWidget(QtWidgets.QWidget):
         self.hash_layout.addWidget(self.sha1_checkbox)
         self.hash_layout.addWidget(self.sha256_checkbox)
         self.left_layout.addLayout(self.hash_layout)
+        # CSV Log
+        self.csv_log_layout = QtWidgets.QVBoxLayout()
+        self.csv_log_layout.addWidget(self.csv_log)
+        self.left_layout.addLayout(self.csv_log_layout)
         # AFF4
         self.aff4_layout = QtWidgets.QVBoxLayout()
         self.aff4_checkbox_layout = QtWidgets.QHBoxLayout()
@@ -347,6 +363,7 @@ class MainWidget(QtWidgets.QWidget):
                 self.metadata,
                 self.aff4_checkbox.isChecked(),
                 self.aff_filename,
+                csv_log=self.csv_log.isChecked(),
             )
             self.progress.setWindowFlags(
                 QtCore.Qt.CustomizeWindowHint | QtCore.Qt.Dialog

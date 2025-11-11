@@ -1,19 +1,19 @@
 name: Packaging Gemino
 run-name: ${{ github.actor }} is packaging Gemino for deployment.
-on: [push, pull_request, workflow_call]
-  #push:
-  #  branches:
-  #    - master
-  #    - 'releases/**'
-  #pull_request:
-  #  branches:
-  #    - master
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_call:
 jobs:
   build-macos:
-    runs-on: macos-13
+    runs-on: macos-15-intel
     strategy:
       matrix:
-        python-version: ["3.9"]
+        python-version: ["3.13"]
     steps:
       - name: Check out repository code
         uses: actions/checkout@v3
@@ -117,7 +117,7 @@ jobs:
     runs-on: windows-2022
     strategy:
       matrix:
-        python-version: ["3.9"]
+        python-version: ["3.13"]
     steps:
       - name: Check out repository code
         uses: actions/checkout@v3
@@ -127,10 +127,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          pip install --upgrade pip
+          pip cache info
           pip install wheel
           pip install pybindgen
-          pip install https://static.servida.ch/software/python/fastchunking/fastchunking-0.0.3-cp39-cp39-win_amd64.whl
+          pip install git+https://github.com/netleibi/fastchunking@0.0.3
           pip install -r requirements/base.txt
       - name: Package app with PyInstaller and NSIS
         run: |

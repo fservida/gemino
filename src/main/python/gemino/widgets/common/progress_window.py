@@ -50,6 +50,7 @@ class ProgressWindow(QtWidgets.QDialog):
         aff4_filename: str = "",
         aff4_verify: bool = False,
         file_export: bool = False,
+        csv_log: bool = False,
     ):
         super().__init__(parent=parent)
 
@@ -142,6 +143,7 @@ class ProgressWindow(QtWidgets.QDialog):
                 metadata,
                 aff4,
                 aff4_filename,
+                csv_log,
             )
             self.thread.copy_progress.connect(
                 self.update_progress, QtCore.Qt.QueuedConnection
