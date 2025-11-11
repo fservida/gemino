@@ -127,10 +127,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
+          mkdir C:\pip
+          python -m pip config set global.cache-dir "C:\pip"
           python -m pip install --upgrade pip
           pip install wheel
           pip install pybindgen
-          pip install https://static.servida.ch/software/python/fastchunking/fastchunking-0.0.3-cp39-cp39-win_amd64.whl
           pip install -r requirements/base.txt
       - name: Package app with PyInstaller and NSIS
         run: |
