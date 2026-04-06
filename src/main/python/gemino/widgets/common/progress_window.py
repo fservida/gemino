@@ -194,6 +194,7 @@ class ProgressWindow(QtWidgets.QDialog):
                     volume_progress.processed_files = progress_status["processed_files"]
                     volume_progress.current_file = progress_status["current_file"]
                     volume_progress.status = progress_status["status"]
+                    volume_progress.container_hashes = progress_status.get("container_hashes", [])
                     log = progress_status.get(
                         "log", None
                     )  # Support for ephemeral AFF4 verification log

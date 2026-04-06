@@ -29,6 +29,7 @@ class VolumeProgress(QtWidgets.QWidget):
         super().__init__()
 
         # Init Data
+        self.__container_hashes: list[dict[str, str | bool]] = []
         self.__status = "idle"
         self.__verified = 0
         self.__current_file = "-"
@@ -246,6 +247,15 @@ class VolumeProgress(QtWidgets.QWidget):
         raise PermissionError(
             "The Volume associated to a widget cannot be changed after the widget creation!"
         )
+
+    @property
+    def container_hashes(self):
+        return self.__container_hashes
+
+    @container_hashes.setter
+    def container_hashes(self, container_hashes: list[dict[str, str | bool]]):
+        self.__container_hashes = container_hashes
+        self.__update_ui()
 
     def __open_folder(self):
         if self.__aff4_verify:
