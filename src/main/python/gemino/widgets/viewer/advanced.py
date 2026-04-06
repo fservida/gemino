@@ -355,7 +355,9 @@ class AdvancedWidget(QtWidgets.QWidget):
             self.volume.urn,
             rdfvalue.URN("http://aff4.org/Schema#endTime"),
         )[0]
-        container_hashes = self.volume.resolver.read_metadata_hashes(self.volume.zip_file)
+        container_hashes = self.volume.resolver.read_metadata_hashes(
+            self.volume.zip_file
+        )
 
         case_metadata = "<table>"
         case_metadata += f"<tr><td><b>Case Name:</b></td><td>{case_name}</td></tr>"
@@ -365,8 +367,10 @@ class AdvancedWidget(QtWidgets.QWidget):
         if container_hashes:
             case_metadata += f"<tr><td><b>Container Hashes:</b></td><td></td></tr>"
             for algo, hash_value in container_hashes.items():
-                case_metadata += f"<tr><td><b>- {algo.upper()}</b></td><td>{hash_value}</td></tr>"
-            case_metadata += f"<tr><td></td><td><i>Unverified, Verify using \"Tools -> Verify AFF4-L Container\"</i></td></tr>"
+                case_metadata += (
+                    f"<tr><td><b>- {algo.upper()}</b></td><td>{hash_value}</td></tr>"
+                )
+            case_metadata += f'<tr><td></td><td><i>Unverified, Verify using "Tools -> Verify AFF4-L Container"</i></td></tr>'
         case_metadata += f"<tr><td><b>Case Description:</b></td><td>{'<br/>'.join(str(case_description).splitlines())}</td></tr>"
         case_metadata += "</table>"
 

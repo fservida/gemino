@@ -766,9 +766,13 @@ class CopyThread(QThread):
                     ) as volume:
                         resolver = volume.resolver
                         verification_listener = LinearVerificationListener(volume.urn)
-                        container_hashes = resolver.read_metadata_hashes(volume.zip_file)
+                        container_hashes = resolver.read_metadata_hashes(
+                            volume.zip_file
+                        )
                         report_file.write("\n")
-                        report_file.write(f"################## Container Metadata Hashes ######################\n")
+                        report_file.write(
+                            f"################## Container Metadata Hashes ######################\n"
+                        )
                         for algo, hash_value in container_hashes.items():
                             report_file.write(f"- {algo.upper()}: {hash_value}\n")
                         report_file.write("\n")
@@ -777,15 +781,23 @@ class CopyThread(QThread):
                         )
                         metadata_verified: bool
                         metadata_hashes: list[dict[str, str | bool]]
-                        metadata_verified, metadata_hashes = resolver.verify_container_metadata_integrity(volume.zip_file)
+                        metadata_verified, metadata_hashes = (
+                            resolver.verify_container_metadata_integrity(
+                                volume.zip_file
+                            )
+                        )
                         if not metadata_verified:
-                            report_file.write("Container Metadata Verification Failed:\n")
+                            report_file.write(
+                                "Container Metadata Verification Failed:\n"
+                            )
                             for hash_value in metadata_hashes:
                                 report_file.write(
                                     f"- {hash_value['hash_type'].upper()} - {'VERIFIED' if hash_value['verified'] else 'FAILED'} | Stored: {hash_value['stored_hash']} - Calculated {hash_value['calculated_hash']}\n"
                                 )
                         else:
-                            report_file.write("Container Metadata Verification Successful\n")
+                            report_file.write(
+                                "Container Metadata Verification Successful\n"
+                            )
 
                         hasher = linear_hasher.LinearHasher2(
                             resolver, verification_listener
@@ -967,23 +979,21 @@ class VerifyThread(QThread):
             # Verify container metadata
             metadata_verified: bool
             metadata_hashes: list[dict[str, str | bool]]
-            metadata_verified, metadata_hashes = resolver.verify_container_metadata_integrity(volume.zip_file)
+            metadata_verified, metadata_hashes = (
+                resolver.verify_container_metadata_integrity(volume.zip_file)
+            )
 
             if metadata_hashes:
                 if not metadata_verified:
                     log += "Container Metadata Verification Failed:\n"
                     for hash_value in metadata_hashes:
-                        log += (
-                            f"- {hash_value['hash_type'].upper()} - {'VERIFIED' if hash_value['verified'] else 'FAILED'} | Stored: {hash_value['stored_hash']} - Calculated {hash_value['calculated_hash']}\n"
-                        )
+                        log += f"- {hash_value['hash_type'].upper()} - {'VERIFIED' if hash_value['verified'] else 'FAILED'} | Stored: {hash_value['stored_hash']} - Calculated {hash_value['calculated_hash']}\n"
                 else:
                     log += "Container Metadata Verification Successful\n"
 
             # Verify container files
             verification_listener = LinearVerificationListener(volume.urn)
-            hasher = linear_hasher.LinearHasher2(
-                resolver, verification_listener
-            )
+            hasher = linear_hasher.LinearHasher2(resolver, verification_listener)
 
             hasher = linear_hasher.LinearHasher2(resolver, verification_listener)
 

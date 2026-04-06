@@ -268,7 +268,7 @@ class VolumeProgress(QtWidgets.QWidget):
         if self.__container_hashes:
             self.__container_hashes_formatted = "Container Hashes:\n"
             for hash_value in self.__container_hashes:
-                if hash_value['verified']:
+                if hash_value["verified"]:
                     self.__container_hashes_formatted += f"- {hash_value['hash_type'].upper()} - VERIFIED\n\t- {hash_value['stored_hash']} (stored, calculated)\n"
                 else:
                     self.__container_hashes_formatted += f"- {hash_value['hash_type'].upper()} - FAILED\n\t- {hash_value['stored_hash']} (stored)\n\t- {hash_value['calculated_hash']} (calculated)\n"
@@ -278,9 +278,13 @@ class VolumeProgress(QtWidgets.QWidget):
 
     def __show_hashes(self):
         self.hash_dialog = LogDialog(
-            self, f"Container Hashes for {self.volume}", self.__container_hashes_formatted
+            self,
+            f"Container Hashes for {self.volume}",
+            self.__container_hashes_formatted,
         )
-        self.hash_dialog.setWindowFlags(QtCore.Qt.CustomizeWindowHint | QtCore.Qt.Dialog)
+        self.hash_dialog.setWindowFlags(
+            QtCore.Qt.CustomizeWindowHint | QtCore.Qt.Dialog
+        )
         self.hash_dialog.setModal(True)
         self.hash_dialog.setWindowModality(QtCore.Qt.ApplicationModal)
         self.hash_dialog.open()
