@@ -1,3 +1,4 @@
+setuptools<82
 PySide6==6.10.*
 PyInstaller==6.16.*
 pyaff4 @ git+https://github.com/fservida/pyaff4@b28f5a2ccd3504145e10a0d4901cd2daf2211fb4  # Use custom version of pyaff4 to support large files in zipfile as well as fixing build process.
