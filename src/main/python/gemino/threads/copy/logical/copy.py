@@ -482,6 +482,7 @@ class CopyThread(QThread):
 
         files_hashes = {}  # {filepath: {hash_name:hash_value, ...}, ...}
         files_metadata = {}  # {filepath: metadata, ...}
+        container_hashes = {}
 
         start_time = self.initialize_log_files(destinations, base_path, src)
 
@@ -760,15 +761,44 @@ class CopyThread(QThread):
             try:
                 report_file_path = path.join(dst, f"{base_path}_copy_report.txt")
                 with open(report_file_path, "a", encoding="utf-8") as report_file:
-                    report_file.write("\n")
-                    report_file.write(
-                        f"################## Verification Report ######################\n"
-                    )
                     with container.Container.openURNtoContainer(
                         rdfvalue.URN.FromFileName(container_path)
                     ) as volume:
                         resolver = volume.resolver
                         verification_listener = LinearVerificationListener(volume.urn)
+                        container_hashes = resolver.read_metadata_hashes(
+                            volume.zip_file
+                        )
+                        report_file.write("\n")
+                        report_file.write(
+                            f"################## Container Metadata Hashes ######################\n"
+                        )
+                        for algo, hash_value in container_hashes.items():
+                            report_file.write(f"- {algo.upper()}: {hash_value}\n")
+                        report_file.write("\n")
+                        report_file.write(
+                            f"################## Verification Report ######################\n"
+                        )
+                        metadata_verified: bool
+                        metadata_hashes: list[dict[str, str | bool]]
+                        metadata_verified, metadata_hashes = (
+                            resolver.verify_container_metadata_integrity(
+                                volume.zip_file
+                            )
+                        )
+                        if not metadata_verified:
+                            report_file.write(
+                                "Container Metadata Verification Failed:\n"
+                            )
+                            for hash_value in metadata_hashes:
+                                report_file.write(
+                                    f"- {hash_value['hash_type'].upper()} - {'VERIFIED' if hash_value['verified'] else 'FAILED'} | Stored: {hash_value['stored_hash']} - Calculated {hash_value['calculated_hash']}\n"
+                                )
+                        else:
+                            report_file.write(
+                                "Container Metadata Verification Successful\n"
+                            )
+
                         hasher = linear_hasher.LinearHasher2(
                             resolver, verification_listener
                         )
@@ -804,13 +834,14 @@ class CopyThread(QThread):
                             hasher.hash(image, progress=progress_listener)
                             hashed_size += filesize
 
-                        if verification_listener.failed:
+                        if verification_listener.failed or not metadata_verified:
                             failed_files = len(verification_listener.failed)
                             progress[dst] = {
                                 "status": "error_hash",
                                 "processed_bytes": hashed_size,
                                 "processed_files": filecount,
                                 "current_file": "",
+                                "container_hashes": metadata_hashes,
                             }
                             for file in verification_listener.failed:
                                 report_file.write(
@@ -828,13 +859,14 @@ class CopyThread(QThread):
                             )
                             self.copy_progress.emit(ProgressData(1, copy(progress)))
 
-                        if not verification_listener.failed:
+                        else:
                             # Signal the end with no errors of the hash verification for the current volume
                             progress[dst] = {
                                 "status": "done",
                                 "processed_bytes": hashed_size,
                                 "processed_files": filecount,
                                 "current_file": "",
+                                "container_hashes": metadata_hashes,
                             }
                             report_file.write(
                                 f"Verification successful for {filecount} files\n"
@@ -929,8 +961,40 @@ class VerifyThread(QThread):
         with container.Container.openURNtoContainer(
             rdfvalue.URN.FromFileName(src)
         ) as volume:
+            log: str = ""
             resolver = volume.resolver
+
+            # Read container metadata
+            container_hashes = resolver.read_metadata_hashes(volume.zip_file)
+            log += f"Container Metadata Hashes:\n"
+            if container_hashes:
+                for algo, hash_value in container_hashes.items():
+                    log += f"- {algo.upper()}: {hash_value}\n"
+            else:
+                log += f"- Container does not contain metadata hashes\n"
+            log += "\n"
+
+            # Verify container
+            log += f"################## Verification Report ######################\n"
+            # Verify container metadata
+            metadata_verified: bool
+            metadata_hashes: list[dict[str, str | bool]]
+            metadata_verified, metadata_hashes = (
+                resolver.verify_container_metadata_integrity(volume.zip_file)
+            )
+
+            if metadata_hashes:
+                if not metadata_verified:
+                    log += "Container Metadata Verification Failed:\n"
+                    for hash_value in metadata_hashes:
+                        log += f"- {hash_value['hash_type'].upper()} - {'VERIFIED' if hash_value['verified'] else 'FAILED'} | Stored: {hash_value['stored_hash']} - Calculated {hash_value['calculated_hash']}\n"
+                else:
+                    log += "Container Metadata Verification Successful\n"
+
+            # Verify container files
             verification_listener = LinearVerificationListener(volume.urn)
+            hasher = linear_hasher.LinearHasher2(resolver, verification_listener)
+
             hasher = linear_hasher.LinearHasher2(resolver, verification_listener)
 
             for image in volume.images():
@@ -964,9 +1028,10 @@ class VerifyThread(QThread):
                 hasher.hash(image, progress=progress_listener)
                 hashed_size += filesize
 
-            if verification_listener.failed:
+            if verification_listener.failed or not metadata_verified:
                 failed_files = len(verification_listener.failed)
-                log = f"Verification Failed for {failed_files} files:\n\n"
+                if failed_files:
+                    log += f"Verification Failed for {failed_files} files:\n\n"
                 for file in verification_listener.failed:
                     log += f"Verification failed for file: {trimVolume(volume.urn, file)}\n"
                     for hash_failed in verification_listener.failed[file]:
@@ -975,20 +1040,21 @@ class VerifyThread(QThread):
                     "status": "error_hash",
                     "processed_bytes": hashed_size,
                     "processed_files": filecount,
-                    "current_file": f"Verification Failed for {failed_files} files",
+                    "current_file": f"Verification Failed for {failed_files} files or container metadata (if existing).",
                     "log": log,
                 }
 
                 self.verify_progress.emit(ProgressData(4, copy(progress)))
 
-            if not verification_listener.failed:
+            else:
                 # Signal the end with no errors of the hash verification for the current volume
+                log += f"Verification successful for {filecount} files and container metadata (if existing).\n"
                 progress[src] = {
                     "status": "done",
                     "processed_bytes": hashed_size,
                     "processed_files": filecount,
                     "current_file": "",
-                    "log": f"Verification successful for {filecount} files\n",
+                    "log": log,
                 }
                 self.verify_progress.emit(ProgressData(4, copy(progress)))
 
@@ -1006,8 +1072,5 @@ class VerifyThread(QThread):
         log += f"Container: {self.src}\n"
         log += f"Total Files: {self.total_files}\n"
         log += f"Size: {self.total_bytes} Bytes (~ {self.total_bytes / 10 ** 9} GB)\n"
-        log += f"\n"
-        log += f"\n"
-        log += f"################## Verification Report ######################\n"
 
         return log

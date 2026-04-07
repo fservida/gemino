@@ -29,6 +29,8 @@ class VolumeProgress(QtWidgets.QWidget):
         super().__init__()
 
         # Init Data
+        self.__container_hashes: list[dict[str, str | bool]] = []
+        self.__container_hashes_formatted: str = ""
         self.__status = "idle"
         self.__verified = 0
         self.__current_file = "-"
@@ -82,6 +84,9 @@ class VolumeProgress(QtWidgets.QWidget):
         self.__show_log_button = QtWidgets.QPushButton("Show Log")
         self.__show_log_button.clicked.connect(self.__show_log)
 
+        self.__show_container_hashes_button = QtWidgets.QPushButton("Show Hashes")
+        self.__show_container_hashes_button.clicked.connect(self.__show_hashes)
+
         self.__layout_container = QtWidgets.QVBoxLayout()
         self.__layout_first_row = QtWidgets.QHBoxLayout()
         self.__layout_third_row = QtWidgets.QHBoxLayout()
@@ -100,6 +105,7 @@ class VolumeProgress(QtWidgets.QWidget):
             self.__progress_bar
         )  # "Second Row" Dedicated to Progress Bar
         self.__layout_container.addWidget(self.__show_log_button)
+        self.__layout_container.addWidget(self.__show_container_hashes_button)
         self.__layout_container.addLayout(self.__layout_third_row)
         self.__layout_container.addLayout(self.__layout_fourth_row)
 
@@ -131,6 +137,11 @@ class VolumeProgress(QtWidgets.QWidget):
             self.__show_log_button.setHidden(not self.__finished)
         else:
             self.__show_log_button.setHidden(True)
+
+        if self.__container_hashes_formatted:
+            self.__show_container_hashes_button.setHidden(False)
+        else:
+            self.__show_container_hashes_button.setHidden(True)
 
         try:
             current_percent = self.__processed_bytes / self.__total_bytes * 100
@@ -246,6 +257,37 @@ class VolumeProgress(QtWidgets.QWidget):
         raise PermissionError(
             "The Volume associated to a widget cannot be changed after the widget creation!"
         )
+
+    @property
+    def container_hashes(self):
+        return self.__container_hashes
+
+    @container_hashes.setter
+    def container_hashes(self, container_hashes: list[dict[str, str | bool]]):
+        self.__container_hashes = container_hashes
+        if self.__container_hashes:
+            self.__container_hashes_formatted = "Container Hashes:\n"
+            for hash_value in self.__container_hashes:
+                if hash_value["verified"]:
+                    self.__container_hashes_formatted += f"- {hash_value['hash_type'].upper()} - VERIFIED\n\t- {hash_value['stored_hash']} (stored, calculated)\n"
+                else:
+                    self.__container_hashes_formatted += f"- {hash_value['hash_type'].upper()} - FAILED\n\t- {hash_value['stored_hash']} (stored)\n\t- {hash_value['calculated_hash']} (calculated)\n"
+        else:
+            self.__container_hashes_formatted = ""
+        self.__update_ui()
+
+    def __show_hashes(self):
+        self.hash_dialog = LogDialog(
+            self,
+            f"Container Hashes for {self.volume}",
+            self.__container_hashes_formatted,
+        )
+        self.hash_dialog.setWindowFlags(
+            QtCore.Qt.CustomizeWindowHint | QtCore.Qt.Dialog
+        )
+        self.hash_dialog.setModal(True)
+        self.hash_dialog.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.hash_dialog.open()
 
     def __open_folder(self):
         if self.__aff4_verify:

@@ -7,7 +7,6 @@ from gemino.widgets.main import MainWindow, ErrorWindow
 from gemino.widgets.common import error_box
 from gemino.vars import VERSION
 
-
 if __name__ == "__main__":
     exit_code = -1
     app = QApplication(sys.argv)

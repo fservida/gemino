@@ -355,12 +355,22 @@ class AdvancedWidget(QtWidgets.QWidget):
             self.volume.urn,
             rdfvalue.URN("http://aff4.org/Schema#endTime"),
         )[0]
+        container_hashes = self.volume.resolver.read_metadata_hashes(
+            self.volume.zip_file
+        )
 
         case_metadata = "<table>"
         case_metadata += f"<tr><td><b>Case Name:</b></td><td>{case_name}</td></tr>"
         case_metadata += f"<tr><td><b>Examiner:</b></td><td>{case_examiner}</td></tr>"
         case_metadata += f"<tr><td><b>Image Start:</b></td><td>{image_start}</td></tr>"
         case_metadata += f"<tr><td><b>Image End:</b></td><td>{image_end}</td></tr>"
+        if container_hashes:
+            case_metadata += f"<tr><td><b>Container Hashes:</b></td><td></td></tr>"
+            for algo, hash_value in container_hashes.items():
+                case_metadata += (
+                    f"<tr><td><b>- {algo.upper()}</b></td><td>{hash_value}</td></tr>"
+                )
+            case_metadata += f'<tr><td></td><td><i>Unverified, Verify using "Tools -> Verify AFF4-L Container"</i></td></tr>'
         case_metadata += f"<tr><td><b>Case Description:</b></td><td>{'<br/>'.join(str(case_description).splitlines())}</td></tr>"
         case_metadata += "</table>"
 
@@ -380,7 +390,7 @@ class AdvancedWidget(QtWidgets.QWidget):
         )
         self.case_metadata_dialog.setModal(True)
         self.case_metadata_dialog.setWindowModality(QtCore.Qt.ApplicationModal)
-        self.case_metadata_dialog.setMinimumSize(500, 400)
+        self.case_metadata_dialog.setMinimumSize(700, 400)
         self.case_metadata_dialog.open()
 
     def load_metadata(self, urn, folder):

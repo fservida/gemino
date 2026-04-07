@@ -1,5 +1,6 @@
+setuptools<82
 PySide6==6.10.*
 PyInstaller==6.16.*
-pyaff4 @ git+https://github.com/fservida/pyaff4@21e7eb8720907d5af2cf687dec768326eee2f210  # Use custom version of pyaff4 to support large files in zipfile as well as fixing build process.
+pyaff4 @ git+https://github.com/fservida/pyaff4@b28f5a2ccd3504145e10a0d4901cd2daf2211fb4  # Use custom version of pyaff4 to support large files in zipfile as well as fixing build process.
 puremagic==1.30
 pillow==12.0.*
